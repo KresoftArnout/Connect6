@@ -1,4 +1,4 @@
-Client/bin/**
-Client/obj/**
-Server/bin/**
-Server/obj/**
+Client/bin
+Client/obj
+Server/bin
+Server/obj
