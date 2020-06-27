@@ -58,7 +58,7 @@ namespace Connect6.Server
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-                endpoints.MapHub<Connect6Hub>("/chathub");
+                endpoints.MapHub<Connect6Hub>("/connect6hub");
                 endpoints.MapFallbackToFile("index.html");
             });
         }
