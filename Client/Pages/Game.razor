@@ -1,0 +1,136 @@
+@page "/game/{GameId}"
+@using Microsoft.AspNetCore.SignalR.Client
+@using System.Collections.Generic
+@using System.Text
+@using System
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+<h1>Connect 6</h1>
+<h2>@turnMessage</h2>
+<table style="border: none;">
+  @for (int j = 0; j < boardLineStrings.Count;++j)
+  {
+    <tr>
+      @for (int i = 0; i < boardLineStrings[j].Length; ++i)
+      {
+        var x = i;
+        var y = j;
+        <td style="padding: 0px;">
+          <div @onclick="@(e => Play(x, y))" style="width: 100%; height: 100%; display: block;">
+            @svgCollection[boardLineStrings[j][i]]
+          </div>
+        </td>
+      }
+    </tr>
+  }
+</table>
+<hr>
+<button @onclick="Undo" disabled="@(!IsConnected)">Undo</button>
+
+<h1>@serverMessage</h1>
+
+@code {
+  private HubConnection hubConnection;
+  private List<string> boardLineStrings = new List<string>();
+  private string turnMessage;
+  private string serverMessage;
+
+  private Dictionary<char, MarkupString> svgCollection;
+
+  [Parameter]
+  public string GameId { get; set; }
+
+  protected override async Task OnInitializedAsync()
+  {
+    SetSvgCollection();
+
+    hubConnection = new HubConnectionBuilder()
+      .WithUrl(NavigationManager.ToAbsoluteUri("/connect6hub"))
+      .Build();
+
+    hubConnection.On<Dictionary<string, string>>("CurrentBoard", (currentState) =>
+    {
+      turnMessage = $"{(currentState["currentTurn"] == "w" ? "White" : "Black")}'s turn. {currentState["currentTurnRemaining"]} remaining.";
+
+      boardLineStrings = currentState["boardString"].Split("\n").ToList();
+      StateHasChanged();
+    });
+
+    hubConnection.On<string>("ServerMessage", (messageString) =>
+    {
+      serverMessage = messageString;
+      StateHasChanged();
+    });
+
+    await hubConnection.StartAsync();
+    await hubConnection.SendAsync("InitializeBoardAndConnection", GameId);
+  }
+
+  Task Play(int x, int y) => hubConnection.SendAsync("PlaceStone", GameId, x, y);
+
+  Task Undo() => hubConnection.SendAsync("UndoStone", GameId);
+
+  public bool IsConnected =>
+      hubConnection.State == HubConnectionState.Connected;
+
+  public void Dispose()
+  {
+    _ = hubConnection.DisposeAsync();
+  }
+
+  private void SetSvgCollection()
+  {
+    Dictionary<char, string> svgString = new Dictionary<char, string>();
+    svgString.Add('b', Encoding.UTF8.GetString(System.Convert.FromBase64String(
+      "PD94bWwgdmVyc2lvbj0iMS4wIj8+CjxzdmcgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCI+CjxkZWZzPjxyYWRpYWxHcmFkaWVudCBpZD0icmciIGN4PSIuMyIgY3k9Ii4zIiByPSIuOCI+CjxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iIzc3NyIvPgo8c3RvcCBvZmZzZXQ9Ii4zIiBzdG9wLWNvbG9yPSIjMjIyIi8+CjxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzAwMCIvPgo8L3JhZGlhbEdyYWRpZW50PjwvZGVmcz4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNEQ0IzNUMiLz4KPGNpcmNsZSBjeD0iMjUwIiBjeT0iMjUwIiByPSIyNDUiIGZpbGw9InVybCgjcmcpIi8+Cjwvc3ZnPg=="
+    )));
+    svgString.Add('w', Encoding.UTF8.GetString(System.Convert.FromBase64String(
+      "PD94bWwgdmVyc2lvbj0iMS4wIj8+CjxzdmcgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCI+CiAgICA8ZGVmcz4KICAgICAgPHJhZGlhbEdyYWRpZW50IGlkPSJyZ3ciIGN4PSIuNDciIGN5PSIuNDkiIHI9Ii40OCI+CiAgICAgICAgPHN0b3Agb2Zmc2V0PSIuNyIgc3RvcC1jb2xvcj0iI0ZGRiIvPgogICAgICAgIDxzdG9wIG9mZnNldD0iLjkiIHN0b3AtY29sb3I9IiNEREQiLz4KICAgICAgICA8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiM3NzciLz4KICAgICAgPC9yYWRpYWxHcmFkaWVudD4KICAgIDwvZGVmcz4KICAgIDxyZWN0IHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIiBmaWxsPSIjRENCMzVDIi8+CiAgPGNpcmNsZSBjeD0iMjUwIiBjeT0iMjUwIiByPSIyNDUiIGZpbGw9InVybCgjcmd3KSIvPgo8L3N2Zz4="
+    )));
+    svgString.Add('7', Encoding.UTF8.GetString(System.Convert.FromBase64String(
+      "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIj4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNEQ0IzNUMiLz4KPHBhdGggc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIwIiBkPSJNMjQwLDI1MEg1MDBNMjUwLDI0MFY1MDAiLz4KPC9zdmc+"
+    )));
+    svgString.Add('8', Encoding.UTF8.GetString(System.Convert.FromBase64String(
+      "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIj4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNEQ0IzNUMiLz4KPHBhdGggc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIwIiBkPSJNMCwyNTBINTAwTTI1MCwyNDBWNTAwIi8+Cjwvc3ZnPg=="
+    )));
+    svgString.Add('9', Encoding.UTF8.GetString(System.Convert.FromBase64String(
+      "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIj4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNEQ0IzNUMiLz4KPHBhdGggc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIwIiBkPSJNMCwyNTBIMjYwTTI1MCwyNDBWNTAwIi8+Cjwvc3ZnPg=="
+    )));
+    svgString.Add('4', Encoding.UTF8.GetString(System.Convert.FromBase64String(
+      "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIj4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNEQ0IzNUMiLz4KPHBhdGggc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIwIiBkPSJNMjQwLDI1MEg1MDBNMjUwLDBWNTAwIi8+Cjwvc3ZnPg=="
+    )));
+    svgString.Add('5', Encoding.UTF8.GetString(System.Convert.FromBase64String(
+      "PD94bWwgdmVyc2lvbj0iMS4wIj8+PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIj48cmVjdCB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgZmlsbD0iI0RDQjM1QyIvPjxwYXRoIHN0cm9rZT0iIzAwMCIgc3Ryb2tlLXdpZHRoPSIyMCIgZD0iTTAsMjUwSDUwME0yNTAsMFY1MDAiLz48L3N2Zz4="
+    )));
+    svgString.Add('6', Encoding.UTF8.GetString(System.Convert.FromBase64String(
+      "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIj4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNEQ0IzNUMiLz4KPHBhdGggc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIwIiBkPSJNMCwyNTBIMjYwTTI1MCwwVjUwMCIvPgo8L3N2Zz4="
+    )));
+    svgString.Add('1', Encoding.UTF8.GetString(System.Convert.FromBase64String(
+      "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIj4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNEQ0IzNUMiLz4KPHBhdGggc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIwIiBkPSJNMjQwLDI1MEg1MDBNMjUwLDBWMjYwIi8+Cjwvc3ZnPg=="
+    )));
+    svgString.Add('2', Encoding.UTF8.GetString(System.Convert.FromBase64String(
+      "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIj4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNEQ0IzNUMiLz4KPHBhdGggc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIwIiBkPSJNMCwyNTBINTAwTTI1MCwwVjI1MCIvPgo8L3N2Zz4="
+    )));
+    svgString.Add('3', Encoding.UTF8.GetString(System.Convert.FromBase64String(
+      "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIj4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNEQ0IzNUMiLz4KPHBhdGggc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIwIiBkPSJNMCwyNTBIMjYwTTI1MCwwVjI2MCIvPgo8L3N2Zz4="
+    )));
+    svgString.Add('+', Encoding.UTF8.GetString(System.Convert.FromBase64String(
+      "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIj4KPHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSI1MDAiIGZpbGw9IiNEQ0IzNUMiLz4KPHBhdGggc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIwIiBkPSJNMCwyNTBINTAwTTI1MCwwVjUwMCIvPgo8Y2lyY2xlIGN4PSIyNTAiIGN5PSIyNTAiIHI9IjUwIi8+Cjwvc3ZnPg=="
+    )));
+
+    svgCollection = new Dictionary<char, MarkupString>();
+    foreach (var keyValuePair in svgString)
+    {
+      svgCollection.Add(
+        keyValuePair.Key,
+        new MarkupString(
+          keyValuePair.Value.Replace(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"500\" height=\"500\">",
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 500 500\" height=\"35\">"
+          )
+        )
+      );
+    }
+  }
+}
