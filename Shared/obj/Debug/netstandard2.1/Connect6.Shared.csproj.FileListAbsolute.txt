@@ -1,9 +1,0 @@
-/Users/kyle/dotnetcore/Connect6/Shared/bin/Debug/netstandard2.1/Connect6.Shared.deps.json
-/Users/kyle/dotnetcore/Connect6/Shared/bin/Debug/netstandard2.1/Connect6.Shared.dll
-/Users/kyle/dotnetcore/Connect6/Shared/bin/Debug/netstandard2.1/Connect6.Shared.pdb
-/Users/kyle/dotnetcore/Connect6/Shared/obj/Debug/netstandard2.1/Connect6.Shared.csprojAssemblyReference.cache
-/Users/kyle/dotnetcore/Connect6/Shared/obj/Debug/netstandard2.1/Connect6.Shared.AssemblyInfoInputs.cache
-/Users/kyle/dotnetcore/Connect6/Shared/obj/Debug/netstandard2.1/Connect6.Shared.AssemblyInfo.cs
-/Users/kyle/dotnetcore/Connect6/Shared/obj/Debug/netstandard2.1/Connect6.Shared.csproj.CoreCompileInputs.cache
-/Users/kyle/dotnetcore/Connect6/Shared/obj/Debug/netstandard2.1/Connect6.Shared.dll
-/Users/kyle/dotnetcore/Connect6/Shared/obj/Debug/netstandard2.1/Connect6.Shared.pdb

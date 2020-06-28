@@ -9,18 +9,12 @@ namespace BlazorSignalRApp.Server.Hubs
   public class Connect6Hub : Hub
   {
     static Dictionary<string, GameSession> gameSessions = new Dictionary<string, GameSession>();
-    static Int32 purgeCounter = 0;
 
     public async Task CreateNewGame()
     {
-      ++purgeCounter;
-      if (purgeCounter > 100)
-      {
-        purgeCounter = 0;
-        var toRemove = gameSessions.Where(pair => pair.Value.OldGame()).Select(pair => pair.Key).ToList();
-        foreach (string key in toRemove)
-          gameSessions.Remove(key);
-      }
+      var toRemove = gameSessions.Where(pair => pair.Value.OldGame()).Select(pair => pair.Key).ToList();
+      foreach (string key in toRemove)
+        gameSessions.Remove(key);
 
       string gameId = "";
       do
