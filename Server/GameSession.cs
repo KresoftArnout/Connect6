@@ -11,7 +11,7 @@ namespace BlazorSignalRApp.Server.Hubs
     private int boardSize = 19; // Always odd number. Never below 13
     private char[,] emptyBoard;
     private char[,] currentBoard;
-    private List<(int X, int Y)> plays = new List<(int, int)>();
+    public List<(int X, int Y)> Plays = new List<(int, int)>();
 
     private DateTime sessionUpdatedAt;
 
@@ -57,7 +57,7 @@ namespace BlazorSignalRApp.Server.Hubs
       sessionUpdatedAt = DateTime.Now;
     }
 
-    public bool OldGame() => sessionUpdatedAt < DateTime.Now - TimeSpan.FromHours(6);
+    public bool OldGame() => sessionUpdatedAt < DateTime.Now - TimeSpan.FromMinutes(30);
 
     public string PrintCurrentBoard()
     {
@@ -68,7 +68,8 @@ namespace BlazorSignalRApp.Server.Hubs
           boardString.Append(currentBoard[i, j]);
         boardString.AppendLine("");
       }
-      return boardString.ToString();
+      sessionUpdatedAt = DateTime.Now;
+      return boardString.ToString().Trim('\r', '\n').Trim();
     }
 
     public void PlaceStone(int x, int y)
@@ -76,20 +77,18 @@ namespace BlazorSignalRApp.Server.Hubs
       if (currentBoard[x, y] != 'w' && currentBoard[x, y] != 'b')
       {
         currentBoard[x, y] = CurrentTurn();
-        plays.Add((x, y));
+        Plays.Add((x, y));
       }
-      sessionUpdatedAt = DateTime.Now;
     }
 
     public void UndoStone()
     {
-      if (plays.Count > 0)
+      if (Plays.Count > 0)
       {
-        var lastCoordinate = plays.Last();
+        var lastCoordinate = Plays.Last();
         currentBoard[lastCoordinate.X, lastCoordinate.Y] = emptyBoard[lastCoordinate.X, lastCoordinate.Y];
-        plays.RemoveAt(plays.Count - 1);
+        Plays.RemoveAt(Plays.Count - 1);
       }
-      sessionUpdatedAt = DateTime.Now;
     }
 
     public char CurrentTurn(int turn)
@@ -102,8 +101,8 @@ namespace BlazorSignalRApp.Server.Hubs
     public int CurrentTurnRemaining(int turn) => (turn + 1) % 2 == 0 ? 2 : 1;
 
 
-    public char CurrentTurn() => CurrentTurn(plays.Count);
+    public char CurrentTurn() => CurrentTurn(Plays.Count);
 
-    public int CurrentTurnRemaining() => CurrentTurnRemaining(plays.Count);
+    public int CurrentTurnRemaining() => CurrentTurnRemaining(Plays.Count);
   }
 }
