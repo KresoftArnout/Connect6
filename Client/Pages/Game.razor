@@ -6,36 +6,51 @@
 @inject NavigationManager NavigationManager
 @implements IDisposable
 
-<h2>Connect6(육목)</h2>
-<h3>@turnMessage</h3>
-<table style="border: none;">
-  @for (int j = 0; j < boardLineStrings.Count;++j)
+<div style="text-align: center;">
+  <h2>Connect6(육목)</h2>
+  @if (boardLineStrings.Count > 0)
   {
-    <tr>
-      @for (int i = 0; i < boardLineStrings[j].Length; ++i)
-      {
-        var x = i;
-        var y = j;
-        <td style="padding: 0px;">
-          <div @onclick="@(e => Play(x, y))" style="width: 100%; height: 100%; display: block;">
-            @if ((x == lastPlayX && y == lastPlayY) || (x == lastLastPlayX && y == lastLastPlayY))
-              @svgCollection[Char.ToUpper(boardLineStrings[j][i])]
-            else
-              @svgCollection[boardLineStrings[j][i]]
-          </div>
-        </td>
-      }
-    </tr>
+    <div>Copy the link below and share with others to play together(아래 링크를 복사해 다른 사람과 공유하면 함께 플레이 하실 수 있습니다).</div>
+    <a href="@connectionUrl">@connectionUrl</a>
+    <div>      @connectedUsersMessage</div>
+    <hr>
+
+      <h3>@turnMessage</h3>
+      <table style="border: none; display: inline;">
+        @for (int j = 0; j < boardLineStrings.Count;++j)
+        {
+          <tr>
+            @for (int i = 0; i < boardLineStrings[j].Length; ++i)
+            {
+              var x = i;
+              var y = j;
+              <td style="padding: 0px;">
+                <div @onclick="@(e => Play(x, y))" style="width: 100%; height: 100%; display: block;">
+                  @if ((x == lastPlayX && y == lastPlayY) || (x == lastLastPlayX && y == lastLastPlayY))
+                    @svgCollection[Char.ToUpper(boardLineStrings[j][i])]
+                  else
+                    @svgCollection[boardLineStrings[j][i]]
+                </div>
+              </td>
+            }
+          </tr>
+        }
+      </table>
+      <br/><br/>
+      <p>
+        <button @onclick="Undo" disabled="@(!IsConnected || lastPlayX == -1)">Undo(되감기)</button>
+      </p>
+    <hr>
+    <div>Game session will expire if no activities for 30 minutes(30분동안 안건들이면 세션이 종료됩니다).</div>
   }
-</table>
-<hr>
-<button @onclick="Undo" disabled="@(!IsConnected)">Undo(되감기)</button>
-<div>Game session will expire if no activities for 30 minutes(30분동안 안건들이면 세션이 종료됩니다).</div>
-<div>@serverMessage</div>
+
+  <div>@serverMessage</div>
+</div>
 
 @code {
   private HubConnection hubConnection;
   private List<string> boardLineStrings = new List<string>();
+  private string connectedUsersMessage;
   private string turnMessage;
   private string serverMessage;
   private int lastPlayX = -1;
@@ -70,9 +85,9 @@
         Console.WriteLine("end");
       }
       if (winnerChar == 'n')
-        turnMessage = $"Turn(차례): {(currentState["currentTurn"] == "b" ? "Black" : "White")}. Remaining Moves(남은 횟수): {currentState["currentTurnRemaining"]}";
+        turnMessage = $"Turn(차례): {(currentState["currentTurn"] == "b" ? "Black(흑)" : "White(백)")}. Remaining Moves(남은 횟수): {currentState["currentTurnRemaining"]}";
       else
-        turnMessage = $"Victory(승자): {(winnerChar == 'b' ? "Black" : "White")}";
+        turnMessage = $"Victory(승자): {(winnerChar == 'b' ? "Black(흑)" : "White(백)")}";
 
       boardLineStrings = tempBoard;
       StateHasChanged();
@@ -84,9 +99,15 @@
       StateHasChanged();
     });
 
+    hubConnection.On<string>("NoGameFound", (messageString) =>
+    {
+      serverMessage = "No game found. Check the address(게임이 없습니다. 주소를 확인해보세요).";
+      StateHasChanged();
+    });
+
     hubConnection.On<int>("ConnectionSize", (connectionSize) =>
     {
-      serverMessage = $"In this room(현재 방 인원): {connectionSize} user{(connectionSize > 1 ? "s" : "")}";
+      connectedUsersMessage = $"In this session(현재 방 접속): {connectionSize} user{(connectionSize > 1 ? "s" : "")}(명)";
       StateHasChanged();
     });
 
@@ -196,6 +217,8 @@
   }
 
   Task Undo() => hubConnection.SendAsync("UndoStone", GameId);
+
+  private string connectionUrl => $"http://kyler0.iptime.org:31313/{NavigationManager.ToBaseRelativePath(NavigationManager.Uri)}";
 
   public bool IsConnected =>
       hubConnection.State == HubConnectionState.Connected;

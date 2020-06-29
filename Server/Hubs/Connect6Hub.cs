@@ -8,6 +8,8 @@ namespace BlazorSignalRApp.Server.Hubs
 {
   public class Connect6Hub : Hub
   {
+    static UInt64 totalSessions = 0;
+    static UInt64 totalConnections = 0;
     static Dictionary<string, GameSession> gameSessions = new Dictionary<string, GameSession>();
     static Dictionary<string, HashSet<string>> connections = new Dictionary<string, HashSet<string>>();
     static Dictionary<string, string> reverseMapping = new Dictionary<string, string>();
@@ -37,6 +39,7 @@ namespace BlazorSignalRApp.Server.Hubs
       } while (gameSessions.ContainsKey(gameId));
       gameSessions.Add(gameId, new GameSession());
       connections.Add(gameId, new HashSet<string>());
+      ++totalSessions;
       await Clients.Caller.SendAsync("NewGameIdReceived", gameId);
       Report(gameId, "New Game Made");
     }
@@ -53,6 +56,7 @@ namespace BlazorSignalRApp.Server.Hubs
       }
       await SendCurrentStateAsync(gameId);
       await SendConnectionSize(gameId);
+      ++totalConnections;
       Report(gameId, "New user connected to game");
     }
 
@@ -126,7 +130,7 @@ namespace BlazorSignalRApp.Server.Hubs
         return false;
       else
       {
-        await Clients.Caller.SendAsync("ServerMessage", "No game found. Check the address(게임이 없습니다. 주소를 확인해보세요).");
+        await Clients.Caller.SendAsync("NoGameFound", "");
         Report(gameId, "No game found");
         return true;
       }
@@ -144,6 +148,6 @@ namespace BlazorSignalRApp.Server.Hubs
       }
     }
 
-    private void Report(string gameId, string message) => Console.WriteLine($"[{gameSessions.Keys.Count} sessions, {reverseMapping.Count} users] {gameId} : {message}");
+    private void Report(string gameId, string message) => Console.WriteLine($"{DateTime.Now} [{totalSessions} ToSe, {totalConnections} ToUs][{gameSessions.Keys.Count} CuSe, {reverseMapping.Count} CuUs] {gameId} : {message} - {Context.ConnectionId}");
   }
 }
