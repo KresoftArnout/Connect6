@@ -140,14 +140,18 @@ namespace BlazorSignalRApp.Server.Hubs
     {
       if (reverseMapping.ContainsKey(Context.ConnectionId))
       {
-        string gameId = reverseMapping[Context.ConnectionId];
-        reverseMapping.Remove(Context.ConnectionId);
-        connections[gameId].Remove(Context.ConnectionId);
-        await SendConnectionSize(gameId);
-        Report(gameId, "User disconnects");
+        try
+        {
+          string gameId = reverseMapping[Context.ConnectionId];
+          reverseMapping.Remove(Context.ConnectionId);
+          connections[gameId].Remove(Context.ConnectionId);
+          await SendConnectionSize(gameId);
+          Report(gameId, "User disconnects");
+        }
+        catch {}
       }
     }
 
-    private void Report(string gameId, string message) => Console.WriteLine($"{DateTime.Now} [{totalSessions} ToSe, {totalConnections} ToUs][{gameSessions.Keys.Count} CuSe, {reverseMapping.Count} CuUs] {gameId} : {message} - {Context.ConnectionId}");
+    private void Report(string gameId, string message) => Console.WriteLine($"{DateTime.Now} [{totalSessions} ToSe, {totalConnections} ToUs][{gameSessions.Keys.Count} CuSe, {reverseMapping.Count} CuUs] {gameId} ({connections[gameId].Count}) : {message} - {Context.ConnectionId}");
   }
 }
