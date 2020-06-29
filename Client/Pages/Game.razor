@@ -30,7 +30,7 @@
 </table>
 <hr>
 <button @onclick="Undo" disabled="@(!IsConnected)">Undo(되감기)</button>
-<div>Game session will expire if no activities for 30 expires.(30분동안 안건들이면 세션이 종료됩니다)</div>
+<div>Game session will expire if no activities for 30 minutes(30분동안 안건들이면 세션이 종료됩니다).</div>
 <div>@serverMessage</div>
 
 @code {
@@ -72,7 +72,7 @@
       if (winnerChar == 'n')
         turnMessage = $"Turn(차례): {(currentState["currentTurn"] == "b" ? "Black" : "White")}. Remaining Moves(남은 횟수): {currentState["currentTurnRemaining"]}";
       else
-        turnMessage = $"Victory!(승자!): {(winnerChar == 'b' ? "Black" : "White")}";
+        turnMessage = $"Victory(승자): {(winnerChar == 'b' ? "Black" : "White")}";
 
       boardLineStrings = tempBoard;
       StateHasChanged();
@@ -86,7 +86,7 @@
 
     hubConnection.On<int>("ConnectionSize", (connectionSize) =>
     {
-      serverMessage = $"{connectionSize} user{(connectionSize > 1 ? "s" : "")} watching this game.(현재 방 인원)";
+      serverMessage = $"In this room(현재 방 인원): {connectionSize} user{(connectionSize > 1 ? "s" : "")}";
       StateHasChanged();
     });
 

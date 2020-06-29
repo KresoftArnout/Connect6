@@ -24,6 +24,7 @@ namespace BlazorSignalRApp.Server.Hubs
           foreach (var keyValuePair in reverseMapping.ToList())
             if (keyValuePair.Value == gameIdKey)
               reverseMapping.Remove(keyValuePair.Key);
+          Report(gameIdKey, "Session destroyed");
         }
         catch {}
       }
