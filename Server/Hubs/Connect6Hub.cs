@@ -78,6 +78,20 @@ namespace BlazorSignalRApp.Server.Hubs
       Report(gameId, "User undos");
     }
 
+    public async Task NewGame(string gameId)
+    {
+      if (await HandleNoGameFound(gameId))
+        return;
+      try
+      {
+        if (gameSessions.ContainsKey(gameId))
+        {
+          gameSessions[gameId] = new GameSession();
+          await SendCurrentStateAsync(gameId);
+        }
+      } catch {}
+    }
+
     private async Task SendCurrentStateAsync(string gameId)
     {
       Dictionary<string, string> state = new Dictionary<string, string>();
@@ -131,7 +145,6 @@ namespace BlazorSignalRApp.Server.Hubs
       else
       {
         await Clients.Caller.SendAsync("NoGameFound", "");
-        Report(gameId, "No game found");
         return true;
       }
     }

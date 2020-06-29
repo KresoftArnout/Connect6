@@ -12,10 +12,17 @@
   {
     <div>Copy the link below and share with others to play together(아래 링크를 복사해 다른 사람과 공유하면 함께 플레이 하실 수 있습니다).</div>
     <a href="@connectionUrl">@connectionUrl</a>
-    <div>      @connectedUsersMessage</div>
+    <div>@connectedUsersMessage</div>
     <hr>
 
       <h3>@turnMessage</h3>
+      @if (winnerChar != 'n')
+      {
+        <div>
+          <button @onclick="NewGame" disabled="@(!IsConnected || lastPlayX == -1)">New game with current users(현 유저들과 새게임)</button>
+        </div>
+        <br/>
+      }
       <table style="border: none; display: inline;">
         @for (int j = 0; j < boardLineStrings.Count;++j)
         {
@@ -78,12 +85,8 @@
       lastPlayY = int.Parse(currentState["lastPlayY"]);
       lastLastPlayX = int.Parse(currentState["lastLastPlayX"]);
       lastLastPlayY = int.Parse(currentState["lastLastPlayY"]);
-      if (lastPlayX >= 0)
-      {
-        Console.WriteLine("begin");
-        winnerChar = DetermineWinner(tempBoard);
-        Console.WriteLine("end");
-      }
+      winnerChar = DetermineWinner(tempBoard);
+
       if (winnerChar == 'n')
         turnMessage = $"Turn(차례): {(currentState["currentTurn"] == "b" ? "Black(흑)" : "White(백)")}. Remaining Moves(남은 횟수): {currentState["currentTurnRemaining"]}";
       else
@@ -217,6 +220,8 @@
   }
 
   Task Undo() => hubConnection.SendAsync("UndoStone", GameId);
+
+  Task NewGame() => hubConnection.SendAsync("NewGame", GameId);
 
   private string connectionUrl => $"http://kyler0.iptime.org:31313/{NavigationManager.ToBaseRelativePath(NavigationManager.Uri)}";
 
