@@ -3,10 +3,13 @@
 @inject NavigationManager NavigationManager
 @implements IDisposable
 
-<button @onclick="CreateNewGame" disabled="@(!IsConnected)">Create new game</button>
+<p><button @onclick="CreateNewGame_enUS" disabled="@(!IsConnected)">Create new game (English)</button></p>
+<p><button @onclick="CreateNewGame_koKR" disabled="@(!IsConnected)">새 게임 시작하기 (한국어)</button></p>
 
 @code {
   private HubConnection hubConnection;
+
+  private string languageCode = "";
 
   protected override async Task OnInitializedAsync()
   {
@@ -14,12 +17,22 @@
         .WithUrl(NavigationManager.ToAbsoluteUri("/connect6hub"))
         .Build();
 
-    hubConnection.On<string>("NewGameIdReceived", (gameId) => NavigationManager.NavigateTo($"game/{gameId}"));
+    hubConnection.On<string>("NewGameIdReceived", (gameId) => NavigationManager.NavigateTo($"game/{gameId}?lang={languageCode}"));
 
     await hubConnection.StartAsync();
   }
 
-  Task CreateNewGame() => hubConnection.SendAsync("CreateNewGame");
+  Task CreateNewGame_enUS()
+  {
+    languageCode = "en-US";
+    return hubConnection.SendAsync("CreateNewGame");
+  }
+
+  Task CreateNewGame_koKR()
+  {
+    languageCode = "ko-KR";
+    return hubConnection.SendAsync("CreateNewGame");
+  }
 
   public bool IsConnected =>
       hubConnection.State == HubConnectionState.Connected;

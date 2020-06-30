@@ -10,6 +10,7 @@ namespace BlazorSignalRApp.Server.Hubs
   {
     static UInt64 totalSessions = 0;
     static UInt64 totalConnections = 0;
+    static UInt64 totalMultiplayerGame = 0;
     static Dictionary<string, GameSession> gameSessions = new Dictionary<string, GameSession>();
     static Dictionary<string, HashSet<string>> connections = new Dictionary<string, HashSet<string>>();
     static Dictionary<string, string> reverseMapping = new Dictionary<string, string>();
@@ -41,7 +42,7 @@ namespace BlazorSignalRApp.Server.Hubs
       connections.Add(gameId, new HashSet<string>());
       ++totalSessions;
       await Clients.Caller.SendAsync("NewGameIdReceived", gameId);
-      Report(gameId, "New Game Made");
+      Report(gameId, "New game made");
     }
 
     public async Task InitializeBoardAndConnection(string gameId)
@@ -57,6 +58,8 @@ namespace BlazorSignalRApp.Server.Hubs
       await SendCurrentStateAsync(gameId);
       await SendConnectionSize(gameId);
       ++totalConnections;
+      if (connections[gameId].Count == 2)
+        ++totalMultiplayerGame;
       Report(gameId, "New user connected to game");
     }
 
@@ -66,7 +69,7 @@ namespace BlazorSignalRApp.Server.Hubs
         return;
       gameSessions[gameId].PlaceStone(x, y);
       await SendCurrentStateAsync(gameId);
-      Report(gameId, $"User plays game ({x}, {y})");
+      Report(gameId, $"User played stone ({x}, {y})");
     }
 
     public async Task UndoStone(string gameId)
@@ -75,7 +78,7 @@ namespace BlazorSignalRApp.Server.Hubs
         return;
       gameSessions[gameId].UndoStone();
       await SendCurrentStateAsync(gameId);
-      Report(gameId, "User undos");
+      Report(gameId, "User undid");
     }
 
     public async Task NewGame(string gameId)
@@ -159,12 +162,12 @@ namespace BlazorSignalRApp.Server.Hubs
           reverseMapping.Remove(Context.ConnectionId);
           connections[gameId].Remove(Context.ConnectionId);
           await SendConnectionSize(gameId);
-          Report(gameId, "User disconnects");
+          Report(gameId, "User disconnected");
         }
         catch {}
       }
     }
 
-    private void Report(string gameId, string message) => Console.WriteLine($"{DateTime.Now} [{totalSessions} ToSe, {totalConnections} ToUs][{gameSessions.Keys.Count} CuSe, {reverseMapping.Count} CuUs] {gameId} ({connections[gameId].Count}) : {message} - {Context.ConnectionId}");
+    private void Report(string gameId, string message) => Console.WriteLine($"{DateTime.Now} [{totalSessions} TS, {totalConnections} TU, {totalMultiplayerGame} MUS, {gameSessions.Keys.Count} CS, {reverseMapping.Count} CU] {gameId} ({connections[gameId].Count}) : {message.PadRight(30)}{Context.ConnectionId}");
   }
 }

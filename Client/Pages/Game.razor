@@ -3,14 +3,15 @@
 @using System.Collections.Generic
 @using System.Text
 @using System
+@using Microsoft.AspNetCore.WebUtilities
 @inject NavigationManager NavigationManager
 @implements IDisposable
 
 <div style="text-align: center;">
-  <h2>Connect6(육목)</h2>
+  <h2>@stringResource[languageCode]["GameTitle"]</h2>
   @if (boardLineStrings.Count > 0)
   {
-    <div>Copy the link below and share with others to play together(아래 링크를 복사해 다른 사람과 공유하면 함께 플레이 하실 수 있습니다).</div>
+    <div>@stringResource[languageCode]["CopyLinkInstruction"]</div>
     <a href="@connectionUrl">@connectionUrl</a>
     <div>@connectedUsersMessage</div>
     <hr>
@@ -19,7 +20,7 @@
       @if (winnerChar != 'n')
       {
         <div>
-          <button @onclick="NewGame" disabled="@(!IsConnected || lastPlayX == -1)">New game with current users(현 유저들과 새게임)</button>
+          <button @onclick="NewGame" disabled="@(!IsConnected || lastPlayX == -1)">@stringResource[languageCode]["NewGameButton"]</button>
         </div>
         <br/>
       }
@@ -45,10 +46,10 @@
       </table>
       <br/><br/>
       <p>
-        <button @onclick="Undo" disabled="@(!IsConnected || lastPlayX == -1)">Undo(되감기)</button>
+        <button @onclick="Undo" disabled="@(!IsConnected || lastPlayX == -1)">@stringResource[languageCode]["UndoButton"]</button>
       </p>
     <hr>
-    <div>Game session will expire if no activities for 30 minutes(30분동안 안건들이면 세션이 종료됩니다).</div>
+    <div>@stringResource[languageCode]["ExpirationMessage"]</div>
   }
 
   <div>@serverMessage</div>
@@ -65,13 +66,17 @@
   private int lastLastPlayX = -1;
   private int lastLastPlayY = -1;
   private char winnerChar = 'n';
+  private string languageCode;
   private Dictionary<char, MarkupString> svgCollection;
+
+  private Dictionary<string, Dictionary<string, string>> stringResource;
 
   [Parameter]
   public string GameId { get; set; }
 
   protected override async Task OnInitializedAsync()
   {
+    SetLanguage();
     SetSvgCollection();
 
     hubConnection = new HubConnectionBuilder()
@@ -88,9 +93,16 @@
       winnerChar = DetermineWinner(tempBoard);
 
       if (winnerChar == 'n')
-        turnMessage = $"Turn(차례): {(currentState["currentTurn"] == "b" ? "Black(흑)" : "White(백)")}. Remaining Moves(남은 횟수): {currentState["currentTurnRemaining"]}";
+        turnMessage = String.Format(
+          stringResource[languageCode]["TurnMessage"],
+          currentState["currentTurn"] == "b" ? stringResource[languageCode]["Black"] : stringResource[languageCode]["White"],
+          currentState["currentTurnRemaining"]
+        );
       else
-        turnMessage = $"Victory(승자): {(winnerChar == 'b' ? "Black(흑)" : "White(백)")}";
+        turnMessage = String.Format(
+          stringResource[languageCode]["VictoryMessage"],
+          winnerChar == 'b' ? stringResource[languageCode]["Black"] : stringResource[languageCode]["White"]
+        );
 
       boardLineStrings = tempBoard;
       StateHasChanged();
@@ -104,13 +116,13 @@
 
     hubConnection.On<string>("NoGameFound", (messageString) =>
     {
-      serverMessage = "No game found. Check the address(게임이 없습니다. 주소를 확인해보세요).";
+      serverMessage = stringResource[languageCode]["NoGameFound"];
       StateHasChanged();
     });
 
     hubConnection.On<int>("ConnectionSize", (connectionSize) =>
     {
-      connectedUsersMessage = $"In this session(현재 방 접속): {connectionSize} user{(connectionSize > 1 ? "s" : "")}(명)";
+      connectedUsersMessage = String.Format(stringResource[languageCode]["CurrentSessionUsersMessage"], connectionSize);
       StateHasChanged();
     });
 
@@ -231,6 +243,57 @@
   public void Dispose()
   {
     _ = hubConnection.DisposeAsync();
+  }
+
+  private void SetLanguage()
+  {
+    stringResource = new Dictionary<string, Dictionary<string, string>>();
+    stringResource.Add("en-US", new Dictionary<string, string>());
+    stringResource.Add("ko-KR", new Dictionary<string, string>());
+
+    stringResource["en-US"].Add("GameTitle", "Connect6");
+    stringResource["ko-KR"].Add("GameTitle", "육목");
+
+    stringResource["en-US"].Add("CopyLinkInstruction", "Copy the link below and share with others to play together.");
+    stringResource["ko-KR"].Add("CopyLinkInstruction", "아래 링크를 복사해 다른 사람과 공유하면 함께 플레이 하실 수 있습니다.");
+
+    stringResource["en-US"].Add("NewGameButton", "Play new game with current users");
+    stringResource["ko-KR"].Add("NewGameButton", "현 유저들과 새 게임 시작하기");
+
+    stringResource["en-US"].Add("UndoButton", "Undo");
+    stringResource["ko-KR"].Add("UndoButton", "되감기");
+
+    stringResource["en-US"].Add("ExpirationMessage", "Game session will expire if no activities for 30 minutes.");
+    stringResource["ko-KR"].Add("ExpirationMessage", "30분동안 게임 진행이 없으면 세션이 종료됩니다.");
+
+    stringResource["en-US"].Add("NoGameFound", "No game found. Check the address.");
+    stringResource["ko-KR"].Add("NoGameFound", "진행중인 게임이 없습니다. 주소를 확인해보세요.");
+
+    stringResource["en-US"].Add("TurnMessage", "{0}'s turn. Remaining Moves: {1}");
+    stringResource["ko-KR"].Add("TurnMessage", "{0} 차례. 남은 횟수: {1}");
+
+    stringResource["en-US"].Add("VictoryMessage", "{0} has won.");
+    stringResource["ko-KR"].Add("VictoryMessage", "{0}이 승리하였습니다.");
+
+    stringResource["en-US"].Add("CurrentSessionUsersMessage", "{0} person(s) currently connected to this session.");
+    stringResource["ko-KR"].Add("CurrentSessionUsersMessage", "현재 {0}명이 이 게임 세션에 참여하고 있습니다.");
+
+    stringResource["en-US"].Add("Black", "Black Stone");
+    stringResource["ko-KR"].Add("Black", "흑돌");
+
+    stringResource["en-US"].Add("White", "White Stone");
+    stringResource["ko-KR"].Add("White", "백돌");
+
+    // Parse query params
+    var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+    if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("lang", out var languageCodeValue))
+    {
+      languageCode = languageCodeValue.First();
+      if (!stringResource.ContainsKey(languageCode))
+        languageCode = "en-US";
+    }
+    else
+      languageCode = "en-US";
   }
 
   private void SetSvgCollection()
