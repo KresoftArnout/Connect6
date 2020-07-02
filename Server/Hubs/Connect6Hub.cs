@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
 
@@ -8,6 +10,34 @@ namespace BlazorSignalRApp.Server.Hubs
 {
   public class Connect6Hub : Hub
   {
+    public Connect6Hub() : base()
+    {
+      if (!initialized)
+      {
+        string totalSessionsFileName = Path.Combine(Directory.GetParent(".").FullName, "totalSessions.dat");
+        if (File.Exists(totalSessionsFileName))
+        {
+          StreamReader sr = new StreamReader(totalSessionsFileName);
+          totalSessions = UInt64.Parse(sr.ReadLine() as string);
+          totalConnections = UInt64.Parse(sr.ReadLine() as string);
+          totalMultiplayerGame = UInt64.Parse(sr.ReadLine() as string);
+          sr.Close();
+        }
+        string gameSessionsFileName = Path.Combine(Directory.GetParent(".").FullName, "gameSessions.dat");
+        if (File.Exists(gameSessionsFileName))
+        {
+          string dataRead = File.ReadAllText(gameSessionsFileName);
+          gameSessions = JsonSerializer.Deserialize<Dictionary<string, GameSession>>(dataRead);
+          foreach (var gameId in gameSessions.Keys)
+            connections.Add(gameId, new HashSet<string>());
+        }
+
+        initialized = true;
+      }
+    }
+
+    static bool initialized = false;
+
     static UInt64 totalSessions = 0;
     static UInt64 totalConnections = 0;
     static UInt64 totalMultiplayerGame = 0;
@@ -91,6 +121,7 @@ namespace BlazorSignalRApp.Server.Hubs
         {
           gameSessions[gameId] = new GameSession();
           await SendCurrentStateAsync(gameId);
+          Report(gameId, "Board reset");
         }
       } catch {}
     }
@@ -102,20 +133,22 @@ namespace BlazorSignalRApp.Server.Hubs
       state.Add("currentTurnRemaining", gameSessions[gameId].CurrentTurnRemaining().ToString());
       state.Add("boardString", gameSessions[gameId].PrintCurrentBoard());
 
-      if (gameSessions[gameId].Plays.Count > 0)
+      if (gameSessions[gameId].PlaysX.Count > 0)
       {
-        var lastPlay = gameSessions[gameId].Plays.Last();
-        state.Add("lastPlayX", lastPlay.X.ToString());
-        state.Add("lastPlayY", lastPlay.Y.ToString());
-        if (gameSessions[gameId].Plays.Count > 1)
+        var lastPlayX = gameSessions[gameId].PlaysX.Last();
+        var lastPlayY = gameSessions[gameId].PlaysY.Last();
+        state.Add("lastPlayX", lastPlayX.ToString());
+        state.Add("lastPlayY", lastPlayY.ToString());
+        if (gameSessions[gameId].PlaysX.Count > 1)
         {
-          char lastTurn = gameSessions[gameId].CurrentTurn(gameSessions[gameId].Plays.Count - 1);
-          char lastLastTurn = gameSessions[gameId].CurrentTurn(gameSessions[gameId].Plays.Count - 2);
+          char lastTurn = gameSessions[gameId].CurrentTurn(gameSessions[gameId].PlaysX.Count - 1);
+          char lastLastTurn = gameSessions[gameId].CurrentTurn(gameSessions[gameId].PlaysX.Count - 2);
           if (lastTurn == lastLastTurn)
           {
-            var lastLastPlay = gameSessions[gameId].Plays[^2];
-            state.Add("lastLastPlayX", lastLastPlay.X.ToString());
-            state.Add("lastLastPlayY", lastLastPlay.Y.ToString());
+            var lastLastPlayX = gameSessions[gameId].PlaysX[^2];
+            var lastLastPlayY = gameSessions[gameId].PlaysY[^2];
+            state.Add("lastLastPlayX", lastLastPlayX.ToString());
+            state.Add("lastLastPlayY", lastLastPlayY.ToString());
           }
           else
           {
@@ -166,6 +199,14 @@ namespace BlazorSignalRApp.Server.Hubs
         }
         catch {}
       }
+    }
+
+    public void ParkAndExit()
+    {
+      File.WriteAllText(Path.Combine(Directory.GetParent(".").FullName, "totalSessions.dat"), $"{totalSessions}\n{totalConnections}\n{totalMultiplayerGame}");
+      var jsonString = JsonSerializer.Serialize(gameSessions);
+      File.WriteAllText(Path.Combine(Directory.GetParent(".").FullName, "gameSessions.dat"), jsonString);
+      Environment.Exit(0);
     }
 
     private void Report(string gameId, string message) => Console.WriteLine($"{DateTime.Now} [{totalSessions} TS, {totalConnections} TU, {totalMultiplayerGame} MUS, {gameSessions.Keys.Count} CS, {reverseMapping.Count} CU] {gameId} ({connections[gameId].Count}) : {message.PadRight(30)}{Context.ConnectionId}");

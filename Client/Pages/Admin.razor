@@ -1,0 +1,29 @@
+@page "/admin/admin/admin"
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+<p><button @onclick="ParkAndExit" disabled="@(!IsConnected)">Park and Exit</button></p>
+
+@code {
+  private HubConnection hubConnection;
+
+  protected override async Task OnInitializedAsync()
+  {
+    hubConnection = new HubConnectionBuilder()
+        .WithUrl(NavigationManager.ToAbsoluteUri("/connect6hub"))
+        .Build();
+
+    await hubConnection.StartAsync();
+  }
+
+  Task ParkAndExit() => hubConnection.SendAsync("ParkAndExit");
+
+  public bool IsConnected =>
+      hubConnection.State == HubConnectionState.Connected;
+
+  public void Dispose()
+  {
+    _ = hubConnection.DisposeAsync();
+  }
+}

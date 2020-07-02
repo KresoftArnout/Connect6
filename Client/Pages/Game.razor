@@ -1,6 +1,7 @@
 @page "/game/{GameId}"
 @using Microsoft.AspNetCore.SignalR.Client
 @using System.Collections.Generic
+@using System.Threading;
 @using System.Text
 @using System
 @using Microsoft.AspNetCore.WebUtilities
@@ -14,10 +15,17 @@
     <div>@stringResource[languageCode]["CopyLinkInstruction"]</div>
     <a href="@connectionUrl">@connectionUrl</a>
     <div>@connectedUsersMessage</div>
-    <hr>
 
-      <h3>@turnMessage</h3>
-      @if (winnerChar != 'n')
+    <hr>
+      @if (reconnectTimer >= 0)
+      {
+        <h3>@String.Format(stringResource[languageCode]["DisconnectRefresh"], reconnectTimer)</h3>
+      }
+      else
+      {
+        <h3>@turnMessage</h3>
+      }
+      @if (winnerExist)
       {
         <div>
           <button @onclick="NewGame" disabled="@(!IsConnected || lastPlayX == -1)">@stringResource[languageCode]["NewGameButton"]</button>
@@ -67,6 +75,7 @@
   private int lastLastPlayY = -1;
   private char winnerChar = 'n';
   private string languageCode;
+  private int reconnectTimer = -1;
   private Dictionary<char, MarkupString> svgCollection;
 
   private Dictionary<string, Dictionary<string, string>> stringResource;
@@ -83,6 +92,23 @@
       .WithUrl(NavigationManager.ToAbsoluteUri("/connect6hub"))
       .Build();
 
+    hubConnection.KeepAliveInterval = TimeSpan.FromSeconds(7);
+    hubConnection.Closed += _ => {
+      reconnectTimer = 15;
+      var timer = new Timer(new TimerCallback(_ =>
+      {
+          if (reconnectTimer <= 0)
+          {
+            NavigationManager.NavigateTo(connectionUrl, true);
+            return;
+          }
+          --reconnectTimer;
+          this.StateHasChanged();
+      }), null, 1000, 1000);
+
+      return Task.CompletedTask;
+    };
+
     hubConnection.On<Dictionary<string, string>>("CurrentBoard", (currentState) =>
     {
       var tempBoard = currentState["boardString"].Split("\n").ToList();
@@ -90,19 +116,20 @@
       lastPlayY = int.Parse(currentState["lastPlayY"]);
       lastLastPlayX = int.Parse(currentState["lastLastPlayX"]);
       lastLastPlayY = int.Parse(currentState["lastLastPlayY"]);
-      winnerChar = DetermineWinner(tempBoard);
+      winnerChar = DetermineWinner(tempBoard, lastPlayX, lastPlayY);
 
-      if (winnerChar == 'n')
+      if (winnerExist)
+        turnMessage = String.Format(
+          stringResource[languageCode]["VictoryMessage"],
+          winnerChar == 'b' ? stringResource[languageCode]["Black"] : stringResource[languageCode]["White"]
+        );
+      else
         turnMessage = String.Format(
           stringResource[languageCode]["TurnMessage"],
           currentState["currentTurn"] == "b" ? stringResource[languageCode]["Black"] : stringResource[languageCode]["White"],
           currentState["currentTurnRemaining"]
         );
-      else
-        turnMessage = String.Format(
-          stringResource[languageCode]["VictoryMessage"],
-          winnerChar == 'b' ? stringResource[languageCode]["Black"] : stringResource[languageCode]["White"]
-        );
+
 
       boardLineStrings = tempBoard;
       StateHasChanged();
@@ -130,112 +157,95 @@
     await hubConnection.SendAsync("InitializeBoardAndConnection", GameId);
   }
 
-  private char DetermineWinner(List<String> tempBoard)
+  private char DetermineWinner(List<String> tempBoard, int lastPlayX, int lastPlayY)
   {
-    if (IsVictory('b', tempBoard))
+    if (IsVictory('b', tempBoard, lastPlayX, lastPlayY))
       return 'b';
-    else if (IsVictory('w', tempBoard))
+    else if (IsVictory('w', tempBoard, lastPlayX, lastPlayY))
       return 'w';
     else
       return 'n';
   }
 
-  private bool IsVictory(char stoneColor, List<String> tempBoard)
+  private bool IsVictory(char stoneColor, List<String> tempBoard, int lastPlayX, int lastPlayY)
   {
-    string winningString = $"{stoneColor}{stoneColor}{stoneColor}{stoneColor}{stoneColor}{stoneColor}";
     int dimX = tempBoard[0].Length;
     int dimY = tempBoard.Count;
-    Console.WriteLine(dimX);
-    Console.WriteLine(dimY);
+    if (!IsWithinBoundary(dimX, dimY, lastPlayX, lastPlayY))
+      return false;
+
+    StringBuilder sb = new StringBuilder();
+    string winningString = $"{stoneColor}{stoneColor}{stoneColor}{stoneColor}{stoneColor}{stoneColor}";
 
     // Horizontal Match
-    foreach (string line in tempBoard)
-      if (line.Contains(winningString))
-        return true;
-    // Vertical Match
+    sb.Clear();
     for (int i = 0; i < dimX; ++i)
-    {
-      StringBuilder str = new StringBuilder();
-      for (int j = 0; j < dimY; ++j)
-        str.Append(tempBoard[j][i]);
-      if (str.ToString().Contains(winningString))
-        return true;
-    }
+      sb.Append(tempBoard[lastPlayY][i]);
+    if (sb.ToString().Contains(winningString))
+      return true;
+
+    // Vertical Match
+    sb.Clear();
+    for (int j = 0; j < dimY; ++j)
+      sb.Append(tempBoard[j][lastPlayX]);
+    if (sb.ToString().Contains(winningString))
+      return true;
+
     // Diagonal left
-    Console.WriteLine("diagonal");
-    for (int x = 0; x < dimX; ++x)
+    int ii = lastPlayX;
+    int jj = lastPlayY;
+    while (IsWithinBoundary(dimX, dimY, ii - 1, jj - 1))
     {
-      int i = x;
-      int j = 0;
-      StringBuilder str = new StringBuilder();
-      while (0 <= i && i <= 18 && 0 <= j && j <= 18)
-      {
-        str.Append(tempBoard[j][i]);
-        --i;
-        ++j;
-      }
-      if (str.ToString().Contains(winningString))
-        return true;
+      --ii;
+      --jj;
     }
-    for (int y = 1; y < dimY; ++y)
+    sb.Clear();
+    while (IsWithinBoundary(dimX, dimY, ii, jj))
     {
-      int i = dimX - 1;
-      int j = y;
-      StringBuilder str = new StringBuilder();
-      while (0 <= i && i <= 18 && 0 <= j && j <= 18)
-      {
-        str.Append(tempBoard[j][i]);
-        --i;
-        ++j;
-      }
-      if (str.ToString().Contains(winningString))
-        return true;
+      sb.Append(tempBoard[jj][ii]);
+      ++ii;
+      ++jj;
     }
-     // Diagonal right
-    for (int x = 0; x < dimX; ++x)
+    if (sb.ToString().Contains(winningString))
+      return true;
+    // Diagonal right
+    ii = lastPlayX;
+    jj = lastPlayY;
+    while (IsWithinBoundary(dimX, dimY, ii - 1, jj + 1))
     {
-      int i = x;
-      int j = 0;
-      StringBuilder str = new StringBuilder();
-      while (0 <= i && i <= 18 && 0 <= j && j <= 18)
-      {
-        str.Append(tempBoard[j][i]);
-        ++i;
-        ++j;
-      }
-      if (str.ToString().Contains(winningString))
-        return true;
+      --ii;
+      ++jj;
     }
-    for (int y = 1; y < dimY; ++y)
+    sb.Clear();
+    while (IsWithinBoundary(dimX, dimY, ii, jj))
     {
-      int i = 0;
-      int j = y;
-      StringBuilder str = new StringBuilder();
-      while (0 <= i && i <= 18 && 0 <= j && j <= 18)
-      {
-        str.Append(tempBoard[j][i]);
-        ++i;
-        ++j;
-      }
-      if (str.ToString().Contains(winningString))
-        return true;
+      sb.Append(tempBoard[jj][ii]);
+      ++ii;
+      --jj;
     }
+    if (sb.ToString().Contains(winningString))
+      return true;
+
     return false;
   }
 
+  private Boolean IsWithinBoundary(int dimX, int dimY, int x, int y) => 0 <= x && x < dimX && 0 <= y && y < dimY;
+
   private Task Play(int x, int y)
   {
-    if (winnerChar == 'n')
-      return hubConnection.SendAsync("PlaceStone", GameId, x, y);
+    if (winnerExist)
+      return Task.CompletedTask;
     else
-      return Task.FromResult(0);
+      return hubConnection.SendAsync("PlaceStone", GameId, x, y);
   }
 
   Task Undo() => hubConnection.SendAsync("UndoStone", GameId);
 
   Task NewGame() => hubConnection.SendAsync("NewGame", GameId);
 
-  private string connectionUrl => $"http://kyler0.iptime.org:31313/{NavigationManager.ToBaseRelativePath(NavigationManager.Uri)}";
+  private string connectionUrl => $"https://kyler.ddnsfree.com/{NavigationManager.ToBaseRelativePath(NavigationManager.Uri)}";
+
+  private bool winnerExist => winnerChar != 'n';
 
   public bool IsConnected =>
       hubConnection.State == HubConnectionState.Connected;
@@ -253,6 +263,9 @@
 
     stringResource["en-US"].Add("GameTitle", "Connect6");
     stringResource["ko-KR"].Add("GameTitle", "육목");
+
+    stringResource["en-US"].Add("DisconnectRefresh", "Service interrupted. We'll try to reconnect in {0} seconds. Refresh the page if it doesn't work.");
+    stringResource["ko-KR"].Add("DisconnectRefresh", "서비스 연결이 끊겼습니다. {0}초 후에 자동으로 재접속 합니다. 그래도 바둑판이 보이지 않으면 새로고침을 해주세요.");
 
     stringResource["en-US"].Add("CopyLinkInstruction", "Copy the link below and share with others to play together.");
     stringResource["ko-KR"].Add("CopyLinkInstruction", "아래 링크를 복사해 다른 사람과 공유하면 함께 플레이 하실 수 있습니다.");
