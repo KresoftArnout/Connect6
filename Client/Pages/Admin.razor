@@ -5,8 +5,17 @@
 
 <p><button @onclick="ParkAndExit" disabled="@(!IsConnected)">Park and Exit</button></p>
 
+<ul style="font-family: 'Courier New', Courier, monospace; font-size: 80%;">
+  @foreach (var serverLog in serverLogs)
+  {
+      <li>@serverLog</li>
+  }
+</ul>
+
 @code {
   private HubConnection hubConnection;
+
+  private List<string> serverLogs = new List<string>();
 
   protected override async Task OnInitializedAsync()
   {
@@ -14,7 +23,14 @@
         .WithUrl(NavigationManager.ToAbsoluteUri("/connect6hub"))
         .Build();
 
+    hubConnection.On<List<string>>("ServerLogReceived", (serverLogs) =>
+    {
+      this.serverLogs = serverLogs;
+      StateHasChanged();
+    });
+
     await hubConnection.StartAsync();
+    await hubConnection.SendAsync("RegisterAdminConnection");
   }
 
   Task ParkAndExit() => hubConnection.SendAsync("ParkAndExit");

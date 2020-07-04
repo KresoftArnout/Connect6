@@ -44,6 +44,7 @@ namespace BlazorSignalRApp.Server.Hubs
     static Dictionary<string, GameSession> gameSessions = new Dictionary<string, GameSession>();
     static Dictionary<string, HashSet<string>> connections = new Dictionary<string, HashSet<string>>();
     static Dictionary<string, string> reverseMapping = new Dictionary<string, string>();
+    static Queue<string> serverLogsQueue = new Queue<string>();
 
     public async Task CreateNewGame()
     {
@@ -57,9 +58,9 @@ namespace BlazorSignalRApp.Server.Hubs
           foreach (var keyValuePair in reverseMapping.ToList())
             if (keyValuePair.Value == gameIdKey)
               reverseMapping.Remove(keyValuePair.Key);
-          Report(gameIdKey, "Session destroyed");
+          await Report(gameIdKey, "Session destroyed");
         }
-        catch {}
+        catch { }
       }
 
       string gameId = "";
@@ -72,7 +73,7 @@ namespace BlazorSignalRApp.Server.Hubs
       connections.Add(gameId, new HashSet<string>());
       ++totalSessions;
       await Clients.Caller.SendAsync("NewGameIdReceived", gameId);
-      Report(gameId, "New game made");
+      await Report(gameId, "New game made");
     }
 
     public async Task InitializeBoardAndConnection(string gameId)
@@ -90,8 +91,10 @@ namespace BlazorSignalRApp.Server.Hubs
       ++totalConnections;
       if (connections[gameId].Count == 2)
         ++totalMultiplayerGame;
-      Report(gameId, "New user connected to game");
+      await Report(gameId, "New user connected to game");
     }
+
+    public async Task RegisterAdminConnection() => await Groups.AddToGroupAsync(Context.ConnectionId, "AdminAdminAdmin");
 
     public async Task PlaceStone(string gameId, int x, int y)
     {
@@ -99,7 +102,7 @@ namespace BlazorSignalRApp.Server.Hubs
         return;
       gameSessions[gameId].PlaceStone(x, y);
       await SendCurrentStateAsync(gameId);
-      Report(gameId, $"User played stone ({x}, {y})");
+      await Report(gameId, $"User placed stone ({x.ToString("D2")}, {y.ToString("D2")})");
     }
 
     public async Task UndoStone(string gameId)
@@ -108,7 +111,7 @@ namespace BlazorSignalRApp.Server.Hubs
         return;
       gameSessions[gameId].UndoStone();
       await SendCurrentStateAsync(gameId);
-      Report(gameId, "User undid");
+      await Report(gameId, "User undid");
     }
 
     public async Task NewGame(string gameId)
@@ -121,9 +124,10 @@ namespace BlazorSignalRApp.Server.Hubs
         {
           gameSessions[gameId] = new GameSession();
           await SendCurrentStateAsync(gameId);
-          Report(gameId, "Board reset");
+          await Report(gameId, "Board reset");
         }
-      } catch {}
+      }
+      catch { }
     }
 
     private async Task SendCurrentStateAsync(string gameId)
@@ -195,9 +199,9 @@ namespace BlazorSignalRApp.Server.Hubs
           reverseMapping.Remove(Context.ConnectionId);
           connections[gameId].Remove(Context.ConnectionId);
           await SendConnectionSize(gameId);
-          Report(gameId, "User disconnected");
+          await Report(gameId, "User disconnected");
         }
-        catch {}
+        catch { }
       }
     }
 
@@ -209,6 +213,13 @@ namespace BlazorSignalRApp.Server.Hubs
       Environment.Exit(0);
     }
 
-    private void Report(string gameId, string message) => Console.WriteLine($"{DateTime.Now} [{totalSessions} TS, {totalConnections} TU, {totalMultiplayerGame} MUS, {gameSessions.Keys.Count} CS, {reverseMapping.Count} CU] {gameId} ({connections[gameId].Count}) : {message.PadRight(30)}{Context.ConnectionId}");
+    private async Task Report(string gameId, string message)
+    {
+      string reportMessage = $"{DateTime.Now} [{totalSessions} TS, {totalConnections} TU, {totalMultiplayerGame} MUS, {gameSessions.Keys.Count} CS, {reverseMapping.Count} CU] {gameId} ({connections[gameId].Count}) : {message.PadRight(30)}{Context.ConnectionId}";
+      while (serverLogsQueue.Count > 30)
+        serverLogsQueue.Dequeue();
+      serverLogsQueue.Enqueue(reportMessage);
+      await Clients.Group("AdminAdminAdmin").SendAsync("ServerLogReceived", serverLogsQueue.ToList());
+    }
   }
 }

@@ -72,7 +72,6 @@
 </div>
 
 @code {
-
   private int cellSize = 35;
   private float zoomFactor = 1.0f;
   private HubConnection hubConnection;
@@ -141,9 +140,11 @@
           currentState["currentTurnRemaining"]
         );
 
-
+      bool firstTimeRunning = (boardLineStrings.Count == 0);
       boardLineStrings = tempBoard;
-      await BrowserHasResized();
+
+      if (firstTimeRunning)
+        await BrowserHasResized();
       StateHasChanged();
     });
 
@@ -172,16 +173,16 @@
     await jsRuntime.InvokeAsync<object>("browserResize.registerResizeCallback");
   }
 
-    private async Task BrowserHasResized()
-    {
-      float newWidth = await jsRuntime.InvokeAsync<int>("browserResize.getInnerWidth");
-      float totalBoardWidth = cellSize * boardLineStrings[0].Length + cellSize * 2.5f;
-      if (newWidth < totalBoardWidth)
-        zoomFactor = newWidth / totalBoardWidth;
-      else
-        zoomFactor = 1.0f;
-      StateHasChanged();
-    }
+  private async Task BrowserHasResized()
+  {
+    float newWidth = await jsRuntime.InvokeAsync<int>("browserResize.getInnerWidth");
+    float totalBoardWidth = cellSize * boardLineStrings[0].Length + cellSize * 2.5f;
+    if (newWidth < totalBoardWidth)
+      zoomFactor = newWidth / totalBoardWidth;
+    else
+      zoomFactor = 1.0f;
+    StateHasChanged();
+  }
 
   private char DetermineWinner(List<String> tempBoard, int lastPlayX, int lastPlayY)
   {
