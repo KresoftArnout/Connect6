@@ -94,7 +94,11 @@ namespace BlazorSignalRApp.Server.Hubs
       await Report(gameId, "New user connected to game");
     }
 
-    public async Task RegisterAdminConnection() => await Groups.AddToGroupAsync(Context.ConnectionId, "AdminAdminAdmin");
+    public async Task RegisterAdminConnection()
+    {
+      await Groups.AddToGroupAsync(Context.ConnectionId, "AdminAdminAdmin");
+      await Report("", "");
+    }
 
     public async Task PlaceStone(string gameId, int x, int y)
     {
@@ -215,10 +219,13 @@ namespace BlazorSignalRApp.Server.Hubs
 
     private async Task Report(string gameId, string message)
     {
-      string reportMessage = $"{DateTime.Now} [{totalSessions} TS, {totalConnections} TU, {totalMultiplayerGame} MUS, {gameSessions.Keys.Count} CS, {reverseMapping.Count} CU] {gameId} ({connections[gameId].Count}) : {message.PadRight(30)}{Context.ConnectionId}";
-      while (serverLogsQueue.Count > 30)
-        serverLogsQueue.Dequeue();
-      serverLogsQueue.Enqueue(reportMessage);
+      if (gameId.Length > 0 && message.Length > 0)
+      {
+        string reportMessage = $"{DateTime.Now} [{totalSessions} TS, {totalConnections} TU, {totalMultiplayerGame} MUS, {gameSessions.Keys.Count} CS, {reverseMapping.Count} CU] {gameId} ({connections[gameId].Count}) : {message.PadRight(30)}{Context.ConnectionId}";
+        while (serverLogsQueue.Count > 30)
+          serverLogsQueue.Dequeue();
+        serverLogsQueue.Enqueue(reportMessage);
+      }
       await Clients.Group("AdminAdminAdmin").SendAsync("ServerLogReceived", serverLogsQueue.ToList());
     }
   }
