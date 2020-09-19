@@ -61,10 +61,8 @@
         </table>
       </div>
 
-      <br/><br/>
-      <p>
-        <input type="checkbox" @bind="shouldPlaySound"/> @stringResource[languageCode]["PlayStoneSound"]
-      </p>
+      <br/>
+      <input type="checkbox" @bind="shouldPlaySound"/> @stringResource[languageCode]["PlayStoneSound"]
       <p>
         <button @onclick="Undo" disabled="@(!IsConnected || lastPlayX == -1)">@stringResource[languageCode]["UndoButton"]</button>
       </p>
