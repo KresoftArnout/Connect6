@@ -17,6 +17,7 @@
       .WithUrl(NavigationManager.ToAbsoluteUri("/connect6hub"))
       .Build();
 
+    // Force load page. There's a problem w/ loading soundfiles when use regular path novigation.
     hubConnection.On<String>("NewGameIdReceived", (gameId) => NavigationManager.NavigateTo($"game/{gameId}?lang={languageCode}", true));
 
     await hubConnection.StartAsync();
