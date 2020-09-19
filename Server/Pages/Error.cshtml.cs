@@ -14,7 +14,7 @@ namespace Connect6.Server.Pages
     {
         public String RequestId { get; set; }
 
-        public bool ShowRequestId => !String.IsNullOrEmpty(RequestId);
+        public Boolean ShowRequestId => !String.IsNullOrEmpty(RequestId);
 
         private readonly ILogger<ErrorModel> _logger;
 

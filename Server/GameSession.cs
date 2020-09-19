@@ -70,7 +70,7 @@ namespace BlazorSignalRApp.Server.Hubs
       SessionUpdatedAt = DateTime.Now;
     }
 
-    public bool OldGame() => SessionUpdatedAt < DateTime.Now - TimeSpan.FromMinutes(30);
+    public Boolean OldGame() => SessionUpdatedAt < DateTime.Now - TimeSpan.FromMinutes(30);
 
     public String PrintCurrentBoard()
     {

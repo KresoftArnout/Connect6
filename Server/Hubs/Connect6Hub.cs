@@ -36,7 +36,7 @@ namespace BlazorSignalRApp.Server.Hubs
       }
     }
 
-    static bool initialized = false;
+    static Boolean initialized = false;
 
     static UInt64 totalSessions = 0;
     static UInt64 totalConnections = 0;
@@ -210,12 +210,23 @@ namespace BlazorSignalRApp.Server.Hubs
       }
     }
 
-    public void ParkAndExit()
+    public void ParkAndExit(String adminKeyFromClient)
     {
-      File.WriteAllText(Path.Combine(Directory.GetParent(".").FullName, "totalSessions.dat"), $"{totalSessions}\n{totalConnections}\n{totalMultiplayerGame}");
-      var jsonString = JsonSerializer.Serialize(gameSessions);
-      File.WriteAllText(Path.Combine(Directory.GetParent(".").FullName, "gameSessions.dat"), jsonString);
-      Environment.Exit(0);
+      String adminKeyFileName = Path.Combine(Directory.GetParent(".").FullName, "adminKey.txt");
+      if (File.Exists(adminKeyFileName))
+      {
+        StreamReader sr = new StreamReader(adminKeyFileName);
+        String adminKey = sr.ReadLine() as String;
+        sr.Close();
+
+        if (adminKeyFromClient == adminKey)
+        {
+          File.WriteAllText(Path.Combine(Directory.GetParent(".").FullName, "totalSessions.dat"), $"{totalSessions}\n{totalConnections}\n{totalMultiplayerGame}");
+          var jsonString = JsonSerializer.Serialize(gameSessions);
+          File.WriteAllText(Path.Combine(Directory.GetParent(".").FullName, "gameSessions.dat"), jsonString);
+          Environment.Exit(0);
+        }
+      }
     }
 
     private async Task Report(String gameId, String message)

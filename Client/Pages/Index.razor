@@ -14,27 +14,27 @@
   protected override async Task OnInitializedAsync()
   {
     hubConnection = new HubConnectionBuilder()
-        .WithUrl(NavigationManager.ToAbsoluteUri("/connect6hub"))
-        .Build();
+      .WithUrl(NavigationManager.ToAbsoluteUri("/connect6hub"))
+      .Build();
 
-    hubConnection.On<String>("NewGameIdReceived", (gameId) => NavigationManager.NavigateTo($"game/{gameId}?lang={languageCode}"));
+    hubConnection.On<String>("NewGameIdReceived", (gameId) => NavigationManager.NavigateTo($"game/{gameId}?lang={languageCode}", true));
 
     await hubConnection.StartAsync();
   }
 
   Task CreateNewGame_enUS()
   {
-    languageCode = "en-US";
+    languageCode = "en-us";
     return hubConnection.SendAsync("CreateNewGame");
   }
 
   Task CreateNewGame_koKR()
   {
-    languageCode = "ko-KR";
+    languageCode = "ko-kr";
     return hubConnection.SendAsync("CreateNewGame");
   }
 
-  public bool IsConnected =>
+  public Boolean IsConnected =>
       hubConnection.State == HubConnectionState.Connected;
 
   public void Dispose()
