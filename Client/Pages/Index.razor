@@ -9,7 +9,7 @@
 @code {
   private HubConnection hubConnection;
 
-  private string languageCode = "";
+  private String languageCode = "";
 
   protected override async Task OnInitializedAsync()
   {
@@ -17,7 +17,7 @@
         .WithUrl(NavigationManager.ToAbsoluteUri("/connect6hub"))
         .Build();
 
-    hubConnection.On<string>("NewGameIdReceived", (gameId) => NavigationManager.NavigateTo($"game/{gameId}?lang={languageCode}"));
+    hubConnection.On<String>("NewGameIdReceived", (gameId) => NavigationManager.NavigateTo($"game/{gameId}?lang={languageCode}"));
 
     await hubConnection.StartAsync();
   }

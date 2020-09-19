@@ -16,6 +16,7 @@
     <div>@stringResource[languageCode]["CopyLinkInstruction"]</div>
     <a href="@connectionUrl">@connectionUrl</a>
     <div>@connectedUsersMessage</div>
+    <audio id="stoneSound" preload="auto" src="data:audio/mp4;base64,@stoneSound"/>
 
     <hr>
       @if (reconnectTimer >= 0)
@@ -36,10 +37,10 @@
       <div style="zoom: @zoomFactor">
         <table order="0" cellspacing="0" cellpadding="0" style="border:0; border-collapse:collapse; padding:@(cellSize * 2.5f); font-size:1px; display: inline;">
           <tbody>
-            @for (int j = 0; j < boardLineStrings.Count;++j)
+            @for (Int32 j = 0; j < boardLineStrings.Count;++j)
             {
               <tr style="vertical-align:top; border:none;">
-                @for (int i = 0; i < boardLineStrings[j].Length; ++i)
+                @for (Int32 i = 0; i < boardLineStrings[j].Length; ++i)
                 {
                   var x = i;
                   var y = j;
@@ -62,6 +63,9 @@
 
       <br/><br/>
       <p>
+        <input type="checkbox" @bind="shouldPlaySound"/> @stringResource[languageCode]["PlayStoneSound"]
+      </p>
+      <p>
         <button @onclick="Undo" disabled="@(!IsConnected || lastPlayX == -1)">@stringResource[languageCode]["UndoButton"]</button>
       </p>
     <hr>
@@ -72,31 +76,34 @@
 </div>
 
 @code {
-  private int cellSize = 35;
-  private float zoomFactor = 1.0f;
+  private Int32 cellSize = 35;
+  private Single zoomFactor = 1.0f;
   private HubConnection hubConnection;
-  private List<string> boardLineStrings = new List<string>();
-  private string connectedUsersMessage;
-  private string turnMessage;
-  private string serverMessage;
-  private int lastPlayX = -1;
-  private int lastPlayY = -1;
-  private int lastLastPlayX = -1;
-  private int lastLastPlayY = -1;
-  private char winnerChar = 'n';
-  private string languageCode;
-  private int reconnectTimer = -1;
-  private Dictionary<char, String> pngCollection;
+  private List<String> boardLineStrings = new List<String>();
+  private String connectedUsersMessage;
+  private String turnMessage;
+  private String serverMessage;
+  private Int32 lastPlayX = -1;
+  private Int32 lastPlayY = -1;
+  private Int32 lastLastPlayX = -1;
+  private Int32 lastLastPlayY = -1;
+  private Char winnerChar = 'n';
+  private String languageCode;
+  private Int32 reconnectTimer = -1;
+  private Dictionary<Char, String> pngCollection;
+  private String stoneSound;
+  private Boolean shouldPlaySound = true;
 
-  private Dictionary<string, Dictionary<string, string>> stringResource;
+  private Dictionary<String, Dictionary<String, String>> stringResource;
 
   [Parameter]
-  public string GameId { get; set; }
+  public String GameId { get; set; }
 
   protected override async Task OnInitializedAsync()
   {
     SetLanguage();
     SetPngCollection();
+    SetStoneSound();
 
     hubConnection = new HubConnectionBuilder()
       .WithUrl(NavigationManager.ToAbsoluteUri("/connect6hub"))
@@ -119,13 +126,13 @@
       return Task.CompletedTask;
     };
 
-    hubConnection.On<Dictionary<string, string>>("CurrentBoard", async (currentState) =>
+    hubConnection.On<Dictionary<String, String>>("CurrentBoard", async (currentState) =>
     {
       var tempBoard = currentState["boardString"].Split("\n").ToList();
-      lastPlayX = int.Parse(currentState["lastPlayX"]);
-      lastPlayY = int.Parse(currentState["lastPlayY"]);
-      lastLastPlayX = int.Parse(currentState["lastLastPlayX"]);
-      lastLastPlayY = int.Parse(currentState["lastLastPlayY"]);
+      lastPlayX = Int32.Parse(currentState["lastPlayX"]);
+      lastPlayY = Int32.Parse(currentState["lastPlayY"]);
+      lastLastPlayX = Int32.Parse(currentState["lastLastPlayX"]);
+      lastLastPlayY = Int32.Parse(currentState["lastLastPlayY"]);
       winnerChar = DetermineWinner(tempBoard, lastPlayX, lastPlayY);
 
       if (winnerExist)
@@ -140,7 +147,15 @@
           currentState["currentTurnRemaining"]
         );
 
-      bool firstTimeRunning = (boardLineStrings.Count == 0);
+      if (shouldPlaySound)
+      {
+        if (currentState["soundCue"] == "placeStone")
+        {
+          await jsRuntime.InvokeAsync<object>("soundPlayer.playStoneSound");
+        }
+      }
+
+      Boolean firstTimeRunning = (boardLineStrings.Count == 0);
       boardLineStrings = tempBoard;
 
       if (firstTimeRunning)
@@ -148,19 +163,19 @@
       StateHasChanged();
     });
 
-    hubConnection.On<string>("ServerMessage", (messageString) =>
+    hubConnection.On<String>("ServerMessage", (messageString) =>
     {
       serverMessage = messageString;
       StateHasChanged();
     });
 
-    hubConnection.On<string>("NoGameFound", (messageString) =>
+    hubConnection.On<String>("NoGameFound", (messageString) =>
     {
       serverMessage = stringResource[languageCode]["NoGameFound"];
       StateHasChanged();
     });
 
-    hubConnection.On<int>("ConnectionSize", (connectionSize) =>
+    hubConnection.On<Int32>("ConnectionSize", (connectionSize) =>
     {
       connectedUsersMessage = String.Format(stringResource[languageCode]["CurrentSessionUsersMessage"], connectionSize);
       StateHasChanged();
@@ -175,8 +190,8 @@
 
   private async Task BrowserHasResized()
   {
-    float newWidth = await jsRuntime.InvokeAsync<int>("browserResize.getInnerWidth");
-    float totalBoardWidth = cellSize * boardLineStrings[0].Length + cellSize * 2.5f;
+    Single newWidth = await jsRuntime.InvokeAsync<Int32>("browserResize.getInnerWidth");
+    Single totalBoardWidth = cellSize * boardLineStrings[0].Length + cellSize * 2.5f;
     if (newWidth < totalBoardWidth)
       zoomFactor = newWidth / totalBoardWidth;
     else
@@ -184,7 +199,7 @@
     StateHasChanged();
   }
 
-  private char DetermineWinner(List<String> tempBoard, int lastPlayX, int lastPlayY)
+  private Char DetermineWinner(List<String> tempBoard, Int32 lastPlayX, Int32 lastPlayY)
   {
     if (IsVictory('b', tempBoard, lastPlayX, lastPlayY))
       return 'b';
@@ -194,33 +209,33 @@
       return 'n';
   }
 
-  private bool IsVictory(char stoneColor, List<String> tempBoard, int lastPlayX, int lastPlayY)
+  private bool IsVictory(Char stoneColor, List<String> tempBoard, Int32 lastPlayX, Int32 lastPlayY)
   {
-    int dimX = tempBoard[0].Length;
-    int dimY = tempBoard.Count;
+    Int32 dimX = tempBoard[0].Length;
+    Int32 dimY = tempBoard.Count;
     if (!IsWithinBoundary(dimX, dimY, lastPlayX, lastPlayY))
       return false;
 
     StringBuilder sb = new StringBuilder();
-    string winningString = $"{stoneColor}{stoneColor}{stoneColor}{stoneColor}{stoneColor}{stoneColor}";
+    String winningString = $"{stoneColor}{stoneColor}{stoneColor}{stoneColor}{stoneColor}{stoneColor}";
 
     // Horizontal Match
     sb.Clear();
-    for (int i = 0; i < dimX; ++i)
+    for (Int32 i = 0; i < dimX; ++i)
       sb.Append(tempBoard[lastPlayY][i]);
     if (sb.ToString().Contains(winningString))
       return true;
 
     // Vertical Match
     sb.Clear();
-    for (int j = 0; j < dimY; ++j)
+    for (Int32 j = 0; j < dimY; ++j)
       sb.Append(tempBoard[j][lastPlayX]);
     if (sb.ToString().Contains(winningString))
       return true;
 
     // Diagonal left
-    int ii = lastPlayX;
-    int jj = lastPlayY;
+    Int32 ii = lastPlayX;
+    Int32 jj = lastPlayY;
     while (IsWithinBoundary(dimX, dimY, ii - 1, jj - 1))
     {
       --ii;
@@ -256,9 +271,9 @@
     return false;
   }
 
-  private Boolean IsWithinBoundary(int dimX, int dimY, int x, int y) => 0 <= x && x < dimX && 0 <= y && y < dimY;
+  private Boolean IsWithinBoundary(Int32 dimX, Int32 dimY, Int32 x, Int32 y) => 0 <= x && x < dimX && 0 <= y && y < dimY;
 
-  private Task Play(int x, int y)
+  private Task Play(Int32 x, Int32 y)
   {
     if (winnerExist)
       return Task.CompletedTask;
@@ -270,7 +285,7 @@
 
   Task NewGame() => hubConnection.SendAsync("NewGame", GameId);
 
-  private string connectionUrl => $"https://kyler.ddnsfree.com/{NavigationManager.ToBaseRelativePath(NavigationManager.Uri)}";
+  private String connectionUrl => $"https://kyler.ddnsfree.com/{NavigationManager.ToBaseRelativePath(NavigationManager.Uri)}";
 
   private bool winnerExist => winnerChar != 'n';
 
@@ -285,9 +300,9 @@
 
   private void SetLanguage()
   {
-    stringResource = new Dictionary<string, Dictionary<string, string>>();
-    stringResource.Add("en-US", new Dictionary<string, string>());
-    stringResource.Add("ko-KR", new Dictionary<string, string>());
+    stringResource = new Dictionary<String, Dictionary<String, String>>();
+    stringResource.Add("en-US", new Dictionary<String, String>());
+    stringResource.Add("ko-KR", new Dictionary<String, String>());
 
     stringResource["en-US"].Add("GameTitle", "Connect6");
     stringResource["ko-KR"].Add("GameTitle", "육목");
@@ -325,6 +340,9 @@
     stringResource["en-US"].Add("White", "White Stone");
     stringResource["ko-KR"].Add("White", "백돌");
 
+    stringResource["en-US"].Add("PlayStoneSound", "Play stone sound");
+    stringResource["ko-KR"].Add("PlayStoneSound", "돌 소리 재생");
+
     // Parse query params
     var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
     if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("lang", out var languageCodeValue))
@@ -339,7 +357,7 @@
 
   private void SetPngCollection()
   {
-    pngCollection = new Dictionary<char, string>();
+    pngCollection = new Dictionary<Char, String>();
     pngCollection.Add('7', "iVBORw0KGgoAAAANSUhEUgAAACMAAAAjCAYAAAAe2bNZAAAAaUlEQVRYR+2UuQ0AIAzEYBfWYQPGYwPWyS48PSlOgETh1Eg5OeaitdLDJxMJ41wCMp6ikIGMWl84gzM4oxLAGZXYlZ5Juap7t++vhbFWjgMR5ulvWs5wph1iyHjiQQYyaq/jDM7gzCQwAKiXmjc2j4T0AAAAAElFTkSuQmCC");
     pngCollection.Add('8', "iVBORw0KGgoAAAANSUhEUgAAACMAAAAjCAYAAAAe2bNZAAAAaElEQVRYR+2WwQkAIQwEN71cO3ZgeXZgO/aiBUgeCx6ITN4+wmSyJkavU5dU0EwyCchkikIGMm584QzO4IxLAGdcYiHprePqK02jVxfE9v5IAtNMNgfIQMbdUZzBGZyRxN/066X3ZM4sOHiXN27xx5cAAAAASUVORK5CYII=");
     pngCollection.Add('9', "iVBORw0KGgoAAAANSUhEUgAAACMAAAAjCAYAAAAe2bNZAAAAbElEQVRYR+2WwQ0AIQgEl15sxw4szw5sx168Au54bMIlPoa3CWSYrMRe4+iSCoZJNgGZTFHIQMaNL5zBGZxxCeCMSywklRxXew239+t9Sei1PsUwX7uATGYoZCDjphfO4AzOSOLX/vXsrMqZB6/mmSKZ3FhvAAAAAElFTkSuQmCC");
@@ -354,5 +372,10 @@
     pngCollection.Add('w', "iVBORw0KGgoAAAANSUhEUgAAACMAAAAjCAYAAAAe2bNZAAAFe0lEQVRYR8WY60+bZRjGr7ellJYyKAWkHBrO2DEY5ymMReOMRmOiUzwkuMRs+kf4wb/BxE8SjZkxMSbGaIgmGpNFzoEIyFFhjIOlQCkwYJxa2prrIc+7tpTRsTLv5M4LAcov131+lTttLQGcwta2dfhnORF3Vw3wHijQaf0oSNtD6VPbSE30nuITAeVRYH4atUFryMC5c+dgMBgQHx8PRVHg9/vh8Xiws7ODzc1NrK+vi++TDQd4u2Y5arCoYH65Uw5LRg7S09ORmpoqYOLi4gQIPRAICKCDgwNsbGxgdXUVKysrcDqdAkwf58f1ZxZPhHoojGMzBU6lAbm5ucjMzBRKaLVaaDQa4QSRJoF8Ph/o+/v7AmZ+fh4zMzPY3d3Fi/Y15Fl2j4U6Fua2owa5+Xbk5+cjISEBOp1OqEEYCRQOQwgqxKfX6xVKbW9vY3p6GpOTk3C5XDDE+9BSvxQRKCLM7cUmPG0/j5ycHKEGnSDBQOHKEEKCEIJOIOYOneqMj4/D4XBAowA3GheOAB2B6Vi6hNKyGmRlZUGv16swBKET4iQjFEHoDBdh+JydncXIyAgWFhYiKhQC49o1w5PxJvLy8gQIwxOszEkQ4T+nOoQIdoZrcHBQJPZL51dhS91T/ywEZgLvoKysTEBIJ1Q0ahwHKpN5b28PdJb/0NAQBgYGRFg/vPwgXCpM9+oVVNc2ICUlRfQQQvD5OCASkEAEYUXRmch9fX2Ym5sLKXsV5q7+OkpKSgSAdCZtrIz5I2GozujoKHp7e0XlSXUETJ+7BuW1V2E2m2E0GgUMwxRrC4ZZXFxET0+P6EUWkxfXKl2H4+Avzxuorq5WFUlMTBS9JNZGdagKofikMsPDw+LfUB0BM2f8AEVFRUIV6bEG4eexSxNC+tjYGLq6utRQKYM/fBTw5twUfUWCMHnPyqQqBGIj7OjowNbWFt6qdkH5+ZtPAraLzbBYLCJMBGJvOStjzyEIxwTzpr29XQzV8qz7UG598VmgvvEqkpOTVWXYac/K5KpBGJY4YQhl0vugtLZ+HmhquvK/wTBMrCguAMpXrZ8Gap99QYRJlvWTCBNDJcNEhRKpTNutjwPWsmtiX3kSCSxHAsPEDkxluJCVZ9+HMvD9zcBmWgsKCgpUGCbyWVh4aU9MTKCzs1OsG82sJvaZMX8zKioq1DCx6cViJkWa4sF9pr+/X0zwkKb3h+t5NDQ0qIs2w3UWvUaGiL2G5dzd3S3W0hCY36cLUXrxORGq4EEZy5HAURA8uRkizib2nXSTB69Xrjw4VXo3XkZdXR1MJpMYknJYBu+5p80j7i0ShM+1tTWxQkxNTamq8At1hfhxvBTllfXqGiE3vced3gSRmx7DQxiuD8wXNsAEnR/vXzo8Y0I2vd/+bUBVVZWYU4QgkNyDT5PQ3FXk/ksIQrGcueUtLR1eCBE3Pf7AcS8Bs77LorLYBCUMx4O8EKIJG0uY5SovA6kMmxwXcp4utFcuuJGdsq9G/8h18N2fVtgKK2C325GWlhZyHXDzk7fTw444eaYEXwgE4aki8yQpwYd3a0Pvp4h305ddWSgqLkVxcbF6O0kQCSNPW3nehl+UEoRPnii8CvikaZQAbjQ6j9TDsRflt/2ZMJmzxUVps9nESkoQKnLcRSmPOOYK1XG73SJHuLfw/qZxOr9X9wgXpUR23tPj178zhTpWqxUZGRni8Gf+HBcmVgxLd3l5WQxCTmRC0l694EZWUI6ESxPVW4ive63w+LQiqalQUlKSuoQRSlaNfCVCGB5p0mLyFiKcvG0kDUsbhyspc0WGSx78zJtgy0zex2vl7qh7ZVTKRPq09Z048eZqesWIHY8GxngfCtN3xZsrs/EgaoDgX/wPSNvGHnyAVJwAAAAASUVORK5CYII=");
     pngCollection.Add('B', "iVBORw0KGgoAAAANSUhEUgAAACMAAAAjCAYAAAAe2bNZAAAFiUlEQVRYR62Ya0wcVRTH/8Ob5Q1SKCABW/mgjWIVrWjVtFBRW9IiJtS0CGkbgtlqEz+o8UPTtL5aE42JGhM1Gq3KQ0pTarSs2gZiCxVibYupaUBEKCzvx/JcWHPu9kzvzM7sLo2b3MzcYXbPb/7nf869g3L1xA4XbuLT2evAyV+v4Zc2OxzTC7CEBeKxtSuw+eEUrEqLvIlfBJTlwJQdbMO/9hm4XG5+OurH0tKSei01MQw1bz3iN5hfMEWvtsIxs6gGYRA6ysEZjK/xMTI8ELYP831CeYVpujCCI1//jYCAACiKImAowOLiIpxOpwZEhpJh5PO3967FhpyVplCmMKWHLsIxCwQFBSEwMNADZmFhAfPz86CjmSIEogeLjw7BqQ82GQIZwhS99juCg0MRHBwsBsGQOhSUVSGIubk5zM7OqkD64KykHihAAc5/ucUDyAOGFJlzBiE0NFQMgiF1ZBgGYZiZmRkBaaSEWcpIIdtHBRogDUzL5TEc/qYH4eHhYoSFhSEkJEQAMQx5hdJDitAgEBp0LithBiEDv/fSA3j03mQVSANT+HK7gLBYLCpQfX29zyrw94aEhAQP4AvfbvOEKXqlBUtKqACRR01NDSoqKoQ6lApWY3p6WijicDhA5zTYzPz0sgoDAwMwgomyBKH5M7d/VGUe33dWhYiIiFDPq6qqYLVahVKUHg7MEDIM/d0sVWYwdP8fVUU3YPa82Y7u/llDmOrqalRWVgrvkDKkBgPRkWD42s3CZKVHo/ZInluZvL3Noo+wXzhNNK+rq0N5ebmoKJKdzStD8bncCOVU0dObKcNGv1RT7IbZaG0S1UJPL5uXqqmhoQElJSWi19AXKSCVNA2uJPaPWV+RYfRVxtCXa5+B0vjxNtfuN9qFMhSQy5r7jM1mQ2FhoWGfkcubzGvUZxjQbrcLA+sV4/nxdzdBebF0nevY6T51/aGqIUUIhpRqbm5Gfn6+uhxwB6Z0cdOjIwfVH1kJgomPjzc1+M6nbodyz5pVrqHxeRGMF0QC4u7b1taG3Nxcw7WJIAhKv0obzQcHBwWMmTLJCeFQ0lJTXVAUDQynjKA6OjqQnZ0t/s5bBvINDXmRlBUx8s7Q0BDi4uI8Fk6+F3BBufuODNfQ+IIIJqvDwTs7O5GVlaWBoVQZba7MthEUkGBiY2M1aZKhhTIv7Mhx1f7cq8IwFB+7urqQmZnp0fGNdnnyNdnMdH14eBgxMTGm3npuSxZV01bXzv3nVL+wIgzT3d2NjIwMFUbecvraespKjYyMCBizBbTh/Sfcfeah3Y2GylCwnp4epKena5TR74FlKKNU0f2jo6OIjo42NDt950r9djdM7q5TGhixaF03bG9vL9LS0gzTZKaMfudH87GxMURFRZlWngpTduAsrnRPGAL19fUhJSXFJ4zZ5pxNOjExgcjISEOYNavj8N07BTdW7XXlP7hXzutVxef9/f1ITk5WleIUyW8I/ph5cnIStBsw6kF/HX9Wu4XIe74Rk9NONSiniTpnUlKSX8p4e4eampoSS40+hTGRIWj96mktDM1ySk96KEOd8//60DKjh2FVNJsrmpy7OAjr4RYPdcxg9FVlNNd3Znn++YENyM022QNT0M37bLg2NOMVSO8bMwgjL7FnUhItOP3JVs1zGr433V96As5F9/s0e0evjlnz81buDBIYoODPY9s9BDd9oyyw/oiBkVlTuxjB+Oo79J2Vt1hw5lOtIhzE67t266VB7DnUvCwgbyn74uBGPHiXZ2X6BcM3rd/VgPGpeTGV/aLvNWbKUPmeP1rssyj9+pcI/0rZ/jP4rWNQA+TNO/fdmYijr+f5hFiWMka/drVnHLU/deH7pn9gH5nGirhwPLk+HcV5t2H1rTF+A8g3/gdRN2yxPRJCsgAAAABJRU5ErkJggg==");
     pngCollection.Add('W', "iVBORw0KGgoAAAANSUhEUgAAACMAAAAjCAYAAAAe2bNZAAAFkElEQVRYR8WY+U/bZRzH31+glJYyjkKlHA03MlbGPS1j0Tij0ZjoFI8El5hN/wh/8G8w8SeJxsyYGBNjNEQTjckidyACciqMcchZWhgwrpa25v2Q50tb2lFGmU/y5JsFVl59f873V7nX2uzDY5y1bQ3+WUnEfacO7gMFmlgvCtL3UPrUNtIS3Y/xiYByGpifRiyI1Zlw4cIF6HQ6xMfHQ1EUeL1euFwu7OzsYHNzE+vr6+LfyboDvF2zEjFYRDC/3LPCaMpBRkYG0tLSBExcXJwA4fX5fALo4OAAGxsbcDqdWF1dxeLiogDTxnlx85mlE6EeCTO/mYJFxYbc3FxkZmYKJWJjYxETEyMuQeSRQB6PB7z7+/sCZm5uDtPT09jd3cWLZWvIM+6GhQoLc3e+Brn5ZcjPz0dCQgI0Go1QgzASKBiGEFSIT7fbLZTa3t7G1NQUJiYmYLfboYv3oLl+OSRQSJi7S414uuwicnJyhBq8BPEHClaGEBKEELwEYu7wUp2xsTHMz88jRgFuNSwcAzoG0758BaXlNcjKyoJWq1VhCMJLiJMOoQjCy3ARhs+ZmRkMDw9jYWEhpEIBMPbdVLhMbyIvL0+AMDz+ypwEEfxzqkMI/8twDQwMiMR+6aITlrQ99b8FwIzjHZSXlwsIefV6/WkZwv4+FWH5Dw4Oor+/X4T1w6tH4VJhupzXUF1rQ0pKiughVIZPJisr5SyHCc2cY7mzqpjIvb29mJ2dDSh7Fea+9iZKSkoEgLyyl5wVhl+ElcceRBiqMzIygp6eHlF5Uh0B0+uogbX2OlJTU8GwEIZhkh8SLRhCSJilpSV0d3eLXmQ0uHGj0n44Dv5yvYHq6mpVkcTERBGeaMPIkSGBqMzQ0JD4O1RHwMzqP0BRUZFQRV6ZI7LdnyVn5JdiwlIdeUdHR9HZ2amGShn44SOfO+e26CsShMl7HjAMt1SFQGyE7e3t2NrawlvVdig/f/OJz3K5CUajUYSJQOwt5wXDnkMQjgnmTVtbm6gya9ZDKHe++MxX33AdycnJqjLstOcFI/OGMCxxwhDKoPVAaWn53NfYeO1/g2GYWFFcAJSvWj711T77ggiTLOsnESaGSoaJCiVSmdY7H/vM5TfEvvIkEnhvb0/NGXZgKsNmaM1+CKX/+9u+zfRmFBQUqDBM5PPImeDSHh8fR0dHh1g3mlhN7DOj3iZUVFSoYWLTk6tCNPsMVwr/PtPX1ycmeEDT+8P+PGw2m7poM1yy10QTRvYYPlnOXV1dYi0NgPl9qhCll58TofIflBwJ0YShcyAIL0PE2cS+k2Fw4fXK1SOr0rPxMurq6mAwGMSQlMOS4TrroGSu8Is5HA4wgdfW1sQKMTk5qaoiRob0TT+OlcJaWa+uEXLTI9RZYAjCb8/Qs58QhusD84UNMEHjxftXDm1MwKb32782VFVViTlFdQjEZStahzswy5lb3vLyoUMIuenxB/MPEjDjuSoqi02QMLwcD9Ih+NuTcJBUkuUqnYHcgdnkuJDTuvC8csmB7JT9ozYSbG+/+9MMS2EFysrKkJ6eHuAOuPlJ7/QoEydtir9DIAitisyTpAQP3q0N9E8hfdOXnVkoKi5FcXGx6p0kiISR1lZWW7CjlCB8Mjx0BXzyxCg+3GpYPCZsWEf5bV8mDKnZwlFaLBaxkhKEioRzlNLEca+lOqwe5gj3FvpvHk7n9+pO4Sgl8uIDLX79O1OoYzabYTKZhPFn/oQLE3sIS3dlZUUMQlYQIXleveRAll+OBEsT0VuIr3vMcHliRVJToaSkJHUJIxSV8H8lQhiaNHmi8hYimLx1OB3LG4crKXNFhksa/uB+lJm8j9esjog7Q0TKhPq09Z048eZqalWPHVcM9PEeFGbsijdXqfqDiAH8f/E/fb/nHr1ijm4AAAAASUVORK5CYII=");
+  }
+
+  private void SetStoneSound()
+  {
+    stoneSound = "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";
   }
 }

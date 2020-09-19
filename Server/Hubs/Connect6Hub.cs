@@ -14,22 +14,22 @@ namespace BlazorSignalRApp.Server.Hubs
     {
       if (!initialized)
       {
-        string totalSessionsFileName = Path.Combine(Directory.GetParent(".").FullName, "totalSessions.dat");
+        String totalSessionsFileName = Path.Combine(Directory.GetParent(".").FullName, "totalSessions.dat");
         if (File.Exists(totalSessionsFileName))
         {
           StreamReader sr = new StreamReader(totalSessionsFileName);
-          totalSessions = UInt64.Parse(sr.ReadLine() as string);
-          totalConnections = UInt64.Parse(sr.ReadLine() as string);
-          totalMultiplayerGame = UInt64.Parse(sr.ReadLine() as string);
+          totalSessions = UInt64.Parse(sr.ReadLine() as String);
+          totalConnections = UInt64.Parse(sr.ReadLine() as String);
+          totalMultiplayerGame = UInt64.Parse(sr.ReadLine() as String);
           sr.Close();
         }
-        string gameSessionsFileName = Path.Combine(Directory.GetParent(".").FullName, "gameSessions.dat");
+        String gameSessionsFileName = Path.Combine(Directory.GetParent(".").FullName, "gameSessions.dat");
         if (File.Exists(gameSessionsFileName))
         {
-          string dataRead = File.ReadAllText(gameSessionsFileName);
-          gameSessions = JsonSerializer.Deserialize<Dictionary<string, GameSession>>(dataRead);
+          String dataRead = File.ReadAllText(gameSessionsFileName);
+          gameSessions = JsonSerializer.Deserialize<Dictionary<String, GameSession>>(dataRead);
           foreach (var gameId in gameSessions.Keys)
-            connections.Add(gameId, new HashSet<string>());
+            connections.Add(gameId, new HashSet<String>());
         }
 
         initialized = true;
@@ -41,15 +41,15 @@ namespace BlazorSignalRApp.Server.Hubs
     static UInt64 totalSessions = 0;
     static UInt64 totalConnections = 0;
     static UInt64 totalMultiplayerGame = 0;
-    static Dictionary<string, GameSession> gameSessions = new Dictionary<string, GameSession>();
-    static Dictionary<string, HashSet<string>> connections = new Dictionary<string, HashSet<string>>();
-    static Dictionary<string, string> reverseMapping = new Dictionary<string, string>();
-    static Queue<string> serverLogsQueue = new Queue<string>();
+    static Dictionary<String, GameSession> gameSessions = new Dictionary<String, GameSession>();
+    static Dictionary<String, HashSet<String>> connections = new Dictionary<String, HashSet<String>>();
+    static Dictionary<String, String> reverseMapping = new Dictionary<String, String>();
+    static Queue<String> serverLogsQueue = new Queue<String>();
 
     public async Task CreateNewGame()
     {
       var toRemove = gameSessions.Where(pair => pair.Value.OldGame()).Select(pair => pair.Key).ToList();
-      foreach (string gameIdKey in toRemove)
+      foreach (String gameIdKey in toRemove)
       {
         try
         {
@@ -63,20 +63,20 @@ namespace BlazorSignalRApp.Server.Hubs
         catch { }
       }
 
-      string gameId = "";
+      String gameId = "";
       do
       {
         Guid g = Guid.NewGuid();
         gameId = g.ToString().Substring(0, 8);
       } while (gameSessions.ContainsKey(gameId));
       gameSessions.Add(gameId, new GameSession());
-      connections.Add(gameId, new HashSet<string>());
+      connections.Add(gameId, new HashSet<String>());
       ++totalSessions;
       await Clients.Caller.SendAsync("NewGameIdReceived", gameId);
       await Report(gameId, "New game made");
     }
 
-    public async Task InitializeBoardAndConnection(string gameId)
+    public async Task InitializeBoardAndConnection(String gameId)
     {
       if (await HandleNoGameFound(gameId))
         return;
@@ -100,16 +100,16 @@ namespace BlazorSignalRApp.Server.Hubs
       await Report("", "");
     }
 
-    public async Task PlaceStone(string gameId, int x, int y)
+    public async Task PlaceStone(String gameId, Int32 x, Int32 y)
     {
       if (await HandleNoGameFound(gameId))
         return;
-      gameSessions[gameId].PlaceStone(x, y);
-      await SendCurrentStateAsync(gameId);
+      Boolean result = gameSessions[gameId].PlaceStone(x, y);
+      await SendCurrentStateAsync(gameId, result ? "placeStone" : "");
       await Report(gameId, $"User placed stone ({x.ToString("D2")}, {y.ToString("D2")})");
     }
 
-    public async Task UndoStone(string gameId)
+    public async Task UndoStone(String gameId)
     {
       if (await HandleNoGameFound(gameId))
         return;
@@ -118,7 +118,7 @@ namespace BlazorSignalRApp.Server.Hubs
       await Report(gameId, "User undid");
     }
 
-    public async Task NewGame(string gameId)
+    public async Task NewGame(String gameId)
     {
       if (await HandleNoGameFound(gameId))
         return;
@@ -134,12 +134,13 @@ namespace BlazorSignalRApp.Server.Hubs
       catch { }
     }
 
-    private async Task SendCurrentStateAsync(string gameId)
+    private async Task SendCurrentStateAsync(String gameId, String soundCue = "")
     {
-      Dictionary<string, string> state = new Dictionary<string, string>();
+      Dictionary<String, String> state = new Dictionary<String, String>();
       state.Add("currentTurn", gameSessions[gameId].CurrentTurn().ToString());
       state.Add("currentTurnRemaining", gameSessions[gameId].CurrentTurnRemaining().ToString());
       state.Add("boardString", gameSessions[gameId].PrintCurrentBoard());
+      state.Add("soundCue", soundCue);
 
       if (gameSessions[gameId].PlaysX.Count > 0)
       {
@@ -149,8 +150,8 @@ namespace BlazorSignalRApp.Server.Hubs
         state.Add("lastPlayY", lastPlayY.ToString());
         if (gameSessions[gameId].PlaysX.Count > 1)
         {
-          char lastTurn = gameSessions[gameId].CurrentTurn(gameSessions[gameId].PlaysX.Count - 1);
-          char lastLastTurn = gameSessions[gameId].CurrentTurn(gameSessions[gameId].PlaysX.Count - 2);
+          Char lastTurn = gameSessions[gameId].CurrentTurn(gameSessions[gameId].PlaysX.Count - 1);
+          Char lastLastTurn = gameSessions[gameId].CurrentTurn(gameSessions[gameId].PlaysX.Count - 2);
           if (lastTurn == lastLastTurn)
           {
             var lastLastPlayX = gameSessions[gameId].PlaysX[^2];
@@ -180,9 +181,9 @@ namespace BlazorSignalRApp.Server.Hubs
       await Clients.Group(gameId).SendAsync("CurrentBoard", state);
     }
 
-    private async Task SendConnectionSize(string gameId) => await Clients.Group(gameId).SendAsync("ConnectionSize", connections[gameId].Count);
+    private async Task SendConnectionSize(String gameId) => await Clients.Group(gameId).SendAsync("ConnectionSize", connections[gameId].Count);
 
-    private async Task<Boolean> HandleNoGameFound(string gameId)
+    private async Task<Boolean> HandleNoGameFound(String gameId)
     {
       if (gameSessions.ContainsKey(gameId))
         return false;
@@ -199,7 +200,7 @@ namespace BlazorSignalRApp.Server.Hubs
       {
         try
         {
-          string gameId = reverseMapping[Context.ConnectionId];
+          String gameId = reverseMapping[Context.ConnectionId];
           reverseMapping.Remove(Context.ConnectionId);
           connections[gameId].Remove(Context.ConnectionId);
           await SendConnectionSize(gameId);
@@ -217,11 +218,11 @@ namespace BlazorSignalRApp.Server.Hubs
       Environment.Exit(0);
     }
 
-    private async Task Report(string gameId, string message)
+    private async Task Report(String gameId, String message)
     {
       if (gameId.Length > 0 && message.Length > 0)
       {
-        string reportMessage = $"{DateTime.Now} [{totalSessions} TS, {totalConnections} TU, {totalMultiplayerGame} MUS, {gameSessions.Keys.Count} CS, {reverseMapping.Count} CU] {gameId} ({connections[gameId].Count}) : {message.PadRight(30)}{Context.ConnectionId}";
+        String reportMessage = $"{DateTime.Now} [{totalSessions} TS, {totalConnections} TU, {totalMultiplayerGame} MUS, {gameSessions.Keys.Count} CS, {reverseMapping.Count} CU] {gameId} ({connections[gameId].Count}) : {message.PadRight(30)}{Context.ConnectionId}";
         while (serverLogsQueue.Count > 30)
           serverLogsQueue.Dequeue();
         serverLogsQueue.Enqueue(reportMessage);

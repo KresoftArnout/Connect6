@@ -15,7 +15,7 @@
 @code {
   private HubConnection hubConnection;
 
-  private List<string> serverLogs = new List<string>();
+  private List<String> serverLogs = new List<String>();
 
   protected override async Task OnInitializedAsync()
   {
@@ -23,7 +23,7 @@
         .WithUrl(NavigationManager.ToAbsoluteUri("/connect6hub"))
         .Build();
 
-    hubConnection.On<List<string>>("ServerLogReceived", (serverLogs) =>
+    hubConnection.On<List<String>>("ServerLogReceived", (serverLogs) =>
     {
       this.serverLogs = serverLogs;
       StateHasChanged();
