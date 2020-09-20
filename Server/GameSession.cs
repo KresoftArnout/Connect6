@@ -82,7 +82,7 @@ namespace BlazorSignalRApp.Server.Hubs
         boardString.AppendLine("");
       }
       SessionUpdatedAt = DateTime.Now;
-      return boardString.ToString().Trim('\r', '\n').Trim();
+      return boardString.ToString().Trim('\r', '\n').Replace("\r", "");
     }
 
     public Boolean PlaceStone(Int32 x, Int32 y)
